@@ -30,16 +30,18 @@ import CountdownTimer from "@/components/CountdownTimer";
 interface ProductFiltersProps {
   filters: any;
   onFiltersChange: (filters: any | ((prevFilters: any) => any)) => void;
+  customOptions?: FilterOptions;
+  hideTitle?: boolean;
 }
 
-const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
+const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = false }: ProductFiltersProps) => {
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<string[]>([]);
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(
     null
   );
   const [filterErrors, setFilterErrors] = useState<FilterError[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!customOptions);
   const [retryCount, setRetryCount] = useState(0);
   const [localPriceRange, setLocalPriceRange] = useState(filters.priceRange || [0, 1000]);
   const priceRangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -75,9 +77,14 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
 
   // Load filter options from backend
   useEffect(() => {
-    loadFilterOptions();
+    if (customOptions) {
+        setFilterOptions(customOptions);
+        setIsLoading(false);
+    } else {
+        loadFilterOptions();
+    }
     loadActiveDiscounts();
-  }, []);
+  }, [customOptions]);
 
   useEffect(() => {
     if (!isUpdatingPriceRef.current && filters.priceRange) {
@@ -562,7 +569,7 @@ const ProductFilters = ({ filters, onFiltersChange }: ProductFiltersProps) => {
     <div className="h-[calc(100vh-150px)] overflow-y-auto pr-2 space-y-4">
       {/* Filter Controls */}
       <div className="flex items-center justify-between sticky top-0 bg-white z-10 py-2">
-        <h3 className="text-sm font-medium">Product Filters</h3>
+        {!hideTitle && <h3 className="text-sm font-medium">Product Filters</h3>}
         {hasActiveFilters && (
           <Button
             variant="ghost"

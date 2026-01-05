@@ -541,7 +541,6 @@ function PaymentSuccessContent() {
                 </div>
               </div>
 
-              {/* Order Summary */}
               <div className="flex justify-end">
                 <div className="w-full max-w-sm">
                   <div className="bg-gray-50 rounded-md p-4">

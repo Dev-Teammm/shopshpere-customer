@@ -179,6 +179,12 @@ const Header = () => {
                     Shop
                   </NavigationLink>
                   <NavigationLink
+                    href="/stores"
+                    className="text-lg font-medium px-2 py-1 hover:text-primary transition-colors"
+                  >
+                    Stores
+                  </NavigationLink>
+                  <NavigationLink
                     href="/track-order"
                     className="text-lg font-medium px-2 py-1 hover:text-primary transition-colors"
                   >
@@ -245,6 +251,12 @@ const Header = () => {
                 className="text-sm font-medium hover:text-primary transition-colors"
               >
                 Shop
+              </NavigationLink>
+              <NavigationLink
+                href="/stores"
+                className="text-sm font-medium hover:text-primary transition-colors"
+              >
+                Stores
               </NavigationLink>
             </nav>
           </div>
@@ -368,6 +380,12 @@ const Header = () => {
               className="text-xs font-medium text-center hover:text-primary transition-colors"
             >
               Shop
+            </NavigationLink>
+            <NavigationLink
+              href="/stores"
+              className="text-xs font-medium text-center hover:text-primary transition-colors"
+            >
+              Stores
             </NavigationLink>
           </div>
 
