@@ -123,6 +123,7 @@ export const API_ENDPOINTS = {
   SHOP_BY_ID: (id: string) => `${API_BASE_URL}/shops/${id}`,
   SEARCH_SHOPS: `${API_BASE_URL}/shops/search`,
   ACTIVE_SHOPS: `${API_BASE_URL}/shops/active`,
+  SHOP_DETAILS: (id: string) => `${API_BASE_URL}/shops/${id}/details`,
 } as const;
 
 // HTTP Headers

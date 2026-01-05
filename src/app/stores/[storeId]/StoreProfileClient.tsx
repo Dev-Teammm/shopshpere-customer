@@ -33,294 +33,60 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { StoreService } from "@/lib/storeService";
 
-// Reuse MockShop interface (in a real app this would be shared)
-interface MockShop {
-  id: string;
+interface Product {
+  productId: string;
   name: string;
+  slug: string;
+  price: number;
+  compareAtPrice?: number | null;
+  primaryImage: string | null;
+  rating: number;
+  reviewCount: number;
+  categoryName: string | null;
+  isInStock: boolean;
+}
+
+interface ShopDetails {
+  shopId: string;
+  name: string;
+  slug: string;
   description: string;
-  image: string;
+  logoUrl: string | null;
+  category: string;
+  address: string;
+  contactEmail: string;
+  contactPhone: string;
+  isActive: boolean;
+  status: string;
   rating: number;
   totalReviews: number;
   productCount: number;
-  location: string;
-  owner: string;
-  ownerAvatar: string;
-  category: string;
-  isVerified: boolean;
-  joinedDate: string;
+  featuredProducts: Product[];
 }
-
-// Mock Data (duplicated for now as requested for speed)
-const mockShops: MockShop[] = [
-  {
-    id: "1",
-    name: "Tech Haven Electronics",
-    description:
-      "Your one-stop shop for the latest electronics, gadgets, and tech accessories. We offer premium quality products with excellent customer service and fast shipping.",
-    image:
-      "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop",
-    rating: 4.8,
-    totalReviews: 1247,
-    productCount: 342,
-    location: "New York, USA",
-    owner: "John Smith",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John",
-    category: "Electronics",
-    isVerified: true,
-    joinedDate: "2020-03-15",
-  },
-  {
-    id: "2",
-    name: "Fashion Forward Boutique",
-    description:
-      "Trendy fashion pieces for the modern wardrobe. From casual wear to elegant evening dresses, we curate the best styles for every occasion.",
-    image:
-      "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=600&fit=crop",
-    rating: 4.6,
-    totalReviews: 892,
-    productCount: 567,
-    location: "Los Angeles, USA",
-    owner: "Sarah Johnson",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
-    category: "Fashion",
-    isVerified: true,
-    joinedDate: "2019-07-22",
-  },
-  {
-    id: "3",
-    name: "Home & Garden Essentials",
-    description:
-      "Transform your living space with our curated collection of home decor, furniture, and garden supplies. Quality products for a beautiful home.",
-    image:
-      "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=600&fit=crop",
-    rating: 4.7,
-    totalReviews: 634,
-    productCount: 289,
-    location: "Chicago, USA",
-    owner: "Michael Brown",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Michael",
-    category: "Home & Garden",
-    isVerified: false,
-    joinedDate: "2021-01-10",
-  },
-  {
-    id: "4",
-    name: "Sports & Fitness Pro",
-    description:
-      "Everything you need for your fitness journey. From gym equipment to athletic wear, we support your active lifestyle with premium products.",
-    image:
-      "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=600&fit=crop",
-    rating: 4.9,
-    totalReviews: 2156,
-    productCount: 478,
-    location: "Miami, USA",
-    owner: "Emily Davis",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emily",
-    category: "Sports",
-    isVerified: true,
-    joinedDate: "2018-11-05",
-  },
-  {
-    id: "5",
-    name: "Beauty & Cosmetics Store",
-    description:
-      "Discover your perfect beauty routine with our extensive collection of skincare, makeup, and beauty tools. Expert-curated products for all skin types.",
-    image:
-      "https://images.unsplash.com/photo-1522338243-122c23b3ea3b?w=800&h=600&fit=crop",
-    rating: 4.5,
-    totalReviews: 1873,
-    productCount: 623,
-    location: "San Francisco, USA",
-    owner: "Jessica Martinez",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica",
-    category: "Beauty",
-    isVerified: true,
-    joinedDate: "2020-09-18",
-  },
-  {
-    id: "6",
-    name: "Books & Media Hub",
-    description:
-      "A paradise for book lovers and media enthusiasts. Browse our vast collection of books, e-books, audiobooks, and digital media content.",
-    image:
-      "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop",
-    rating: 4.4,
-    totalReviews: 456,
-    productCount: 1234,
-    location: "Seattle, USA",
-    owner: "David Wilson",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=David",
-    category: "Books",
-    isVerified: false,
-    joinedDate: "2021-05-30",
-  },
-  {
-    id: "7",
-    name: "Gourmet Food Market",
-    description:
-      "Premium quality food products from around the world. Organic, artisanal, and specialty foods for the discerning palate.",
-    image:
-      "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=800&h=600&fit=crop",
-    rating: 4.8,
-    totalReviews: 1023,
-    productCount: 456,
-    location: "Portland, USA",
-    owner: "Lisa Anderson",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Lisa",
-    category: "Food",
-    isVerified: true,
-    joinedDate: "2019-12-14",
-  },
-  {
-    id: "8",
-    name: "Toy Kingdom",
-    description:
-      "Fun and educational toys for children of all ages. We offer safe, high-quality toys that spark imagination and creativity.",
-    image:
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop",
-    rating: 4.7,
-    totalReviews: 789,
-    productCount: 234,
-    location: "Boston, USA",
-    owner: "Robert Taylor",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Robert",
-    category: "Toys",
-    isVerified: true,
-    joinedDate: "2020-06-20",
-  },
-  {
-    id: "9",
-    name: "Artisan Crafts Co.",
-    description:
-      "Handmade and unique artisan products. Support independent creators and discover one-of-a-kind items for your home and lifestyle.",
-    image:
-      "https://images.unsplash.com/photo-1452860606245-08c77f79b47d?w=800&h=600&fit=crop",
-    rating: 4.6,
-    totalReviews: 567,
-    productCount: 189,
-    location: "Austin, USA",
-    owner: "Amanda White",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Amanda",
-    category: "Handmade",
-    isVerified: false,
-    joinedDate: "2021-08-12",
-  },
-  {
-    id: "10",
-    name: "Pet Paradise",
-    description:
-      "Everything your furry friends need. Premium pet supplies, food, toys, and accessories for dogs, cats, and small animals.",
-    image:
-      "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&h=600&fit=crop",
-    rating: 4.9,
-    totalReviews: 1456,
-    productCount: 378,
-    location: "Denver, USA",
-    owner: "Chris Thompson",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Chris",
-    category: "Pets",
-    isVerified: true,
-    joinedDate: "2019-04-08",
-  },
-  {
-    id: "11",
-    name: "Outdoor Adventure Gear",
-    description:
-      "Gear up for your next adventure with our selection of camping, hiking, and outdoor equipment. Quality gear for outdoor enthusiasts.",
-    image:
-      "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=800&h=600&fit=crop",
-    rating: 4.7,
-    totalReviews: 923,
-    productCount: 267,
-    location: "Phoenix, USA",
-    owner: "Mark Harris",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mark",
-    category: "Outdoor",
-    isVerified: true,
-    joinedDate: "2020-02-25",
-  },
-  {
-    id: "12",
-    name: "Vintage Collectibles",
-    description:
-      "Discover rare and unique vintage items. From collectibles to antiques, find treasures from the past for your collection.",
-    image:
-      "https://images.unsplash.com/photo-1503602642452-3eee4d1b0c1e?w=800&h=600&fit=crop",
-    rating: 4.5,
-    totalReviews: 345,
-    productCount: 156,
-    location: "Nashville, USA",
-    owner: "Patricia Garcia",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Patricia",
-    category: "Vintage",
-    isVerified: false,
-    joinedDate: "2021-10-15",
-  },
-];
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  rating: number;
-  image: string;
-  category: string;
-}
-
-const mockProducts: Product[] = [
-  {
-    id: "p1",
-    name: "Premium Wireless Headphones",
-    price: 139.99,
-    rating: 4.8,
-    image:
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop",
-    category: "Electronics",
-  },
-  {
-    id: "p2",
-    name: "Smart Fitness Watch",
-    price: 199.5,
-    rating: 4.2,
-    image:
-      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&h=500&fit=crop",
-    category: "Electronics",
-  },
-  {
-    id: "p3",
-    name: "Ultra HD 4K Camera",
-    price: 849.0,
-    rating: 4.9,
-    image:
-      "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=500&h=500&fit=crop",
-    category: "Electronics",
-  },
-  {
-    id: "p4",
-    name: "Mechanical Keyboard",
-    price: 129.99,
-    rating: 4.7,
-    image:
-      "https://images.unsplash.com/photo-1587829741301-3e47d159be43?w=500&h=500&fit=crop",
-    category: "Electronics",
-  },
-];
 
 export function StoreProfileClient({ storeId }: { storeId: string }) {
   const router = useRouter();
-  const [store, setStore] = useState<MockShop | null>(null);
+  const [store, setStore] = useState<ShopDetails | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate API call
-    const timer = setTimeout(() => {
-      const foundStore = mockShops.find((s) => s.id === storeId);
-      setStore(foundStore || null);
-      setLoading(false);
-    }, 500);
+    const fetchStoreDetails = async () => {
+      try {
+        setLoading(true);
+        const data = await StoreService.getShopDetails(storeId);
+        setStore(data);
+      } catch (error) {
+        console.error("Error fetching store details:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    if (storeId) {
+      fetchStoreDetails();
+    }
   }, [storeId]);
 
   if (loading) {
@@ -354,7 +120,10 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
       {/* Hero Banner with Glassmorphism */}
       <div className="relative h-[300px] w-full bg-muted overflow-hidden">
         <Image
-          src={store.image}
+          src={
+            store.logoUrl ||
+            "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop"
+          }
           alt={store.name}
           fill
           className="object-cover brightness-75"
@@ -400,12 +169,19 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
               <CardHeader className="flex flex-col items-center text-center pt-8">
                 <div className="relative">
                   <Avatar className="h-32 w-32 border-4 border-background shadow-md">
-                    <AvatarImage src={store.ownerAvatar} alt={store.owner} />
+                    <AvatarImage
+                      src={
+                        store.owner.avatar ||
+                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${store.owner.firstName}`
+                      }
+                      alt={store.owner.firstName}
+                    />
                     <AvatarFallback>
-                      {store.owner.substring(0, 2).toUpperCase()}
+                      {store.owner.firstName.substring(0, 1).toUpperCase()}
+                      {store.owner.lastName.substring(0, 1).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  {store.isVerified && (
+                  {store.isActive && (
                     <Badge className="absolute bottom-0 right-0 h-8 w-8 rounded-full p-0 flex items-center justify-center bg-primary border-4 border-background">
                       <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
                     </Badge>
@@ -440,7 +216,9 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                       <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
                         Owner
                       </p>
-                      <p className="font-medium">{store.owner}</p>
+                      <p className="font-medium">
+                        {store.owner.firstName} {store.owner.lastName}
+                      </p>
                     </div>
                   </div>
 
@@ -450,7 +228,7 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                       <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
                         Location
                       </p>
-                      <p className="font-medium">{store.location}</p>
+                      <p className="font-medium">{store.address}</p>
                     </div>
                   </div>
 
@@ -458,9 +236,11 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                     <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                     <div>
                       <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                        Joined
+                        Member Since
                       </p>
-                      <p className="font-medium">{store.joinedDate}</p>
+                      <p className="font-medium">
+                        {new Date(store.createdAt).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
 
@@ -513,23 +293,23 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent
-                value="products"
-                className="animate-in fade-in-50 duration-500"
-              >
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-semibold">Featured Products</h3>
+              <TabsContent value="products" className="mt-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold">Featured Products</h3>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-                  {mockProducts.slice(0, 4).map((product) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {store.featuredProducts.map((product) => (
                     <Card
-                      key={product.id}
-                      className="group overflow-hidden border-none shadow-sm hover:shadow-xl transition-all duration-300"
+                      key={product.productId}
+                      className="group overflow-hidden border-border/40 hover:border-primary/50 transition-all duration-300 hover:shadow-lg bg-card/50"
                     >
                       <div className="relative aspect-square bg-gray-100 overflow-hidden">
                         <Image
-                          src={product.image}
+                          src={
+                            product.primaryImage ||
+                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop"
+                          }
                           alt={product.name}
                           fill
                           className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -548,7 +328,7 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-1">
-                              {product.category}
+                              {product.categoryName}
                             </p>
                             <h4 className="font-semibold line-clamp-1 group-hover:text-primary transition-colors">
                               {product.name}
@@ -601,13 +381,13 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                   <CardContent className="space-y-4 text-muted-foreground">
                     <p>
                       Welcome to {store.name}! We have been serving our
-                      community since {new Date(store.joinedDate).getFullYear()}
-                      . Our mission is to provide high-quality{" "}
+                      community since {new Date(store.createdAt).getFullYear()}.
+                      Our mission is to provide high-quality{" "}
                       {store.category.toLowerCase()} products at affordable
                       prices.
                     </p>
                     <p>
-                      Located in {store.location}, we take pride in our fast
+                      Located in {store.address}, we take pride in our fast
                       shipping and excellent customer support. Every product is
                       carefully selected and inspected before shipping.
                     </p>

@@ -53,4 +53,11 @@ export const StoreService = {
   getShopById: async (shopId: string): Promise<Shop> => {
     return apiCall<Shop>(API_ENDPOINTS.SHOP_BY_ID(shopId));
   },
+
+  /**
+   * Get shop details including owner and featured products
+   */
+  getShopDetails: async (shopId: string): Promise<any> => {
+    return apiCall<any>(API_ENDPOINTS.SHOP_DETAILS(shopId));
+  },
 };
