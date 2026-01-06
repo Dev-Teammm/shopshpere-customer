@@ -274,7 +274,7 @@ export default function RegisterForm() {
                   )}
                 </Button>
               </div>
-              {validationErrors.confirmPassword && (
+              {validationErrors.confirmPassword && ( 
                 <p className="text-sm text-red-600">
                   {validationErrors.confirmPassword}
                 </p>
@@ -282,7 +282,7 @@ export default function RegisterForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phoneNumber">Phone Number (Optional)</Label>
+              <Label htmlFor="phoneNumber">Phone Number *</Label>
               <Input
                 id="phoneNumber"
                 name="phoneNumber"

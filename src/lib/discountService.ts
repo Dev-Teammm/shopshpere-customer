@@ -17,9 +17,13 @@ export interface DiscountInfo {
 }
 
 class DiscountService {
-  async getActiveDiscounts(): Promise<DiscountInfo[]> {
+  async getActiveDiscounts(shopId?: string): Promise<DiscountInfo[]> {
     try {
-      const response = await fetch(API_ENDPOINTS.DISCOUNTS_ACTIVE, {
+      const url = shopId
+        ? `${API_ENDPOINTS.DISCOUNTS_ACTIVE}?shopId=${shopId}`
+        : API_ENDPOINTS.DISCOUNTS_ACTIVE;
+
+      const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
