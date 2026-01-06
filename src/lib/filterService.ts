@@ -97,7 +97,9 @@ export const FilterService = {
   /**
    * Fetch all filter options in parallel
    */
-  fetchAllFilterOptions: async (): Promise<{
+  fetchAllFilterOptions: async (
+    shopId?: string
+  ): Promise<{
     data: FilterOptions | null;
     errors: FilterError[];
   }> => {
@@ -111,9 +113,9 @@ export const FilterService = {
 
     // Fetch all data in parallel for better performance
     const results = await Promise.allSettled([
-      FilterService.fetchHierarchicalCategories(),
-      FilterService.fetchActiveBrands(),
-      FilterService.fetchAttributesWithValues(),
+      FilterService.fetchHierarchicalCategories(shopId),
+      FilterService.fetchActiveBrands(shopId),
+      FilterService.fetchAttributesWithValues(shopId),
     ]);
 
     // Process categories result
@@ -169,18 +171,22 @@ export const FilterService = {
   /**
    * Fetch hierarchical categories (top-level with subcategories)
    */
-  fetchHierarchicalCategories: async (): Promise<CategoryDTO[]> => {
+  fetchHierarchicalCategories: async (
+    shopId?: string
+  ): Promise<CategoryDTO[]> => {
     try {
       // First get top-level categories
-      const topLevelResponse = await fetch(
-        `${API_ENDPOINTS.CATEGORIES}/top-level`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      let url = `${API_ENDPOINTS.CATEGORIES}/top-level`;
+      if (shopId) {
+        url += `?shopId=${shopId}`;
+      }
+
+      const topLevelResponse = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!topLevelResponse.ok) {
         throw new Error(
@@ -238,9 +244,13 @@ export const FilterService = {
   /**
    * Fetch active brands
    */
-  fetchActiveBrands: async (): Promise<BrandDTO[]> => {
+  fetchActiveBrands: async (shopId?: string): Promise<BrandDTO[]> => {
     try {
-      const response = await fetch(`${API_ENDPOINTS.BRANDS}/active`, {
+      let url = `${API_ENDPOINTS.BRANDS}/active`;
+      if (shopId) {
+        url += `?shopId=${shopId}`;
+      }
+      const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -262,7 +272,9 @@ export const FilterService = {
   /**
    * Fetch all attributes with their values
    */
-  fetchAttributesWithValues: async (): Promise<
+  fetchAttributesWithValues: async (
+    shopId?: string
+  ): Promise<
     {
       type: ProductAttributeTypeDTO;
       values: ProductAttributeValueDTO[];
@@ -270,7 +282,11 @@ export const FilterService = {
   > => {
     try {
       // First get all attribute types
-      const typesResponse = await fetch(`${API_ENDPOINTS.ATTRIBUTE_TYPES}`, {
+      let url = `${API_ENDPOINTS.ATTRIBUTE_TYPES}`;
+      if (shopId) {
+        url += `?shopId=${shopId}`;
+      }
+      const typesResponse = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -397,7 +413,8 @@ export const FilterService = {
   fetchCategoriesWithSearch: async (
     searchTerm: string,
     page = 0,
-    size = 10
+    size = 10,
+    shopId?: string
   ): Promise<Page<CategoryDTO>> => {
     try {
       const searchDTO = {
@@ -405,19 +422,17 @@ export const FilterService = {
         page: page,
         size: size,
         sortBy: "name",
-        sortDirection: "asc"
+        sortDirection: "asc",
+        shopId: shopId,
       };
 
-      const response = await fetch(
-        `${API_ENDPOINTS.CATEGORIES}/search`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(searchDTO),
-        }
-      );
+      const response = await fetch(`${API_ENDPOINTS.CATEGORIES}/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(searchDTO),
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to search categories: ${response.status}`);
@@ -437,7 +452,8 @@ export const FilterService = {
   fetchBrandsWithSearch: async (
     searchTerm: string,
     page = 0,
-    size = 10
+    size = 10,
+    shopId?: string
   ): Promise<Page<BrandDTO>> => {
     try {
       const searchDTO = {
@@ -445,19 +461,17 @@ export const FilterService = {
         page: page,
         size: size,
         sortBy: "brandName",
-        sortDir: "asc"
+        sortDir: "asc",
+        shopId: shopId,
       };
 
-      const response = await fetch(
-        `${API_ENDPOINTS.BRANDS}/search`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(searchDTO),
-        }
-      );
+      const response = await fetch(`${API_ENDPOINTS.BRANDS}/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(searchDTO),
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to search brands: ${response.status}`);
@@ -476,7 +490,8 @@ export const FilterService = {
    */
   fetchCategoriesWithProductCount: async (
     page = 0,
-    size = 10
+    size = 10,
+    shopId?: string
   ): Promise<Page<CategoryDTO>> => {
     try {
       const searchDTO = {
@@ -485,22 +500,22 @@ export const FilterService = {
         size: size,
         sortBy: "name",
         sortDirection: "desc",
-        sortByProductCount: true
+        sortByProductCount: true,
+        shopId: shopId,
       };
 
-      const response = await fetch(
-        `${API_ENDPOINTS.CATEGORIES}/search`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(searchDTO),
-        }
-      );
+      const response = await fetch(`${API_ENDPOINTS.CATEGORIES}/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(searchDTO),
+      });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch categories with product count: ${response.status}`);
+        throw new Error(
+          `Failed to fetch categories with product count: ${response.status}`
+        );
       }
 
       const categoriesPage: Page<CategoryDTO> = await response.json();
@@ -516,7 +531,8 @@ export const FilterService = {
    */
   fetchBrandsWithProductCount: async (
     page = 0,
-    size = 10
+    size = 10,
+    shopId?: string
   ): Promise<Page<BrandDTO>> => {
     try {
       const searchDTO = {
@@ -524,22 +540,22 @@ export const FilterService = {
         page: page,
         size: size,
         sortBy: "brandName",
-        sortDir: "asc"
+        sortDir: "asc",
+        shopId: shopId,
       };
 
-      const response = await fetch(
-        `${API_ENDPOINTS.BRANDS}/search`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(searchDTO),
-        }
-      );
+      const response = await fetch(`${API_ENDPOINTS.BRANDS}/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(searchDTO),
+      });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch brands with product count: ${response.status}`);
+        throw new Error(
+          `Failed to fetch brands with product count: ${response.status}`
+        );
       }
 
       const brandsPage: Page<BrandDTO> = await response.json();
@@ -555,24 +571,27 @@ export const FilterService = {
    */
   fetchAttributeTypes: async (
     page = 0,
-    size = 10
+    size = 10,
+    shopId?: string
   ): Promise<Page<ProductAttributeTypeDTO>> => {
     try {
-      const response = await fetch(
-        `${API_ENDPOINTS.ATTRIBUTE_TYPES}?page=${page}&size=${size}&sort=name&direction=ASC`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      let url = `${API_ENDPOINTS.ATTRIBUTE_TYPES}?page=${page}&size=${size}&sort=name&direction=ASC`;
+      if (shopId) {
+        url += `&shopId=${shopId}`;
+      }
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch attribute types: ${response.status}`);
       }
 
-      const attributeTypesPage: Page<ProductAttributeTypeDTO> = await response.json();
+      const attributeTypesPage: Page<ProductAttributeTypeDTO> =
+        await response.json();
       return attributeTypesPage;
     } catch (error) {
       console.error("Error fetching attribute types:", error);
@@ -586,24 +605,31 @@ export const FilterService = {
   searchAttributeTypes: async (
     searchTerm: string,
     page = 0,
-    size = 10
+    size = 10,
+    shopId?: string
   ): Promise<Page<ProductAttributeTypeDTO>> => {
     try {
-      const response = await fetch(
-        `${API_ENDPOINTS.ATTRIBUTE_TYPES}/search?name=${encodeURIComponent(searchTerm)}&page=${page}&size=${size}&sort=name&direction=ASC`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      let url = `${
+        API_ENDPOINTS.ATTRIBUTE_TYPES
+      }/search?name=${encodeURIComponent(
+        searchTerm
+      )}&page=${page}&size=${size}&sort=name&direction=ASC`;
+      if (shopId) {
+        url += `&shopId=${shopId}`;
+      }
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to search attribute types: ${response.status}`);
       }
 
-      const attributeTypesPage: Page<ProductAttributeTypeDTO> = await response.json();
+      const attributeTypesPage: Page<ProductAttributeTypeDTO> =
+        await response.json();
       return attributeTypesPage;
     } catch (error) {
       console.error("Error searching attribute types:", error);
@@ -617,24 +643,27 @@ export const FilterService = {
   fetchAttributeValuesByType: async (
     attributeTypeId: number,
     page = 0,
-    size = 10
+    size = 10,
+    shopId?: string
   ): Promise<Page<ProductAttributeValueDTO>> => {
     try {
-      const response = await fetch(
-        `${API_ENDPOINTS.ATTRIBUTE_VALUES}/type/${attributeTypeId}?page=${page}&size=${size}&sort=value&direction=ASC`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      let url = `${API_ENDPOINTS.ATTRIBUTE_VALUES}/type/${attributeTypeId}?page=${page}&size=${size}&sort=value&direction=ASC`;
+      if (shopId) {
+        url += `&shopId=${shopId}`;
+      }
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch attribute values: ${response.status}`);
       }
 
-      const attributeValuesPage: Page<ProductAttributeValueDTO> = await response.json();
+      const attributeValuesPage: Page<ProductAttributeValueDTO> =
+        await response.json();
       return attributeValuesPage;
     } catch (error) {
       console.error("Error fetching attribute values:", error);
@@ -649,24 +678,33 @@ export const FilterService = {
     searchTerm: string,
     attributeTypeId: number,
     page = 0,
-    size = 10
+    size = 10,
+    shopId?: string
   ): Promise<Page<ProductAttributeValueDTO>> => {
     try {
-      const response = await fetch(
-        `${API_ENDPOINTS.ATTRIBUTE_VALUES}/search/type/${attributeTypeId}?value=${encodeURIComponent(searchTerm)}&page=${page}&size=${size}&sort=value&direction=ASC`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      let url = `${
+        API_ENDPOINTS.ATTRIBUTE_VALUES
+      }/search/type/${attributeTypeId}?value=${encodeURIComponent(
+        searchTerm
+      )}&page=${page}&size=${size}&sort=value&direction=ASC`;
+      if (shopId) {
+        url += `&shopId=${shopId}`;
+      }
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!response.ok) {
-        throw new Error(`Failed to search attribute values: ${response.status}`);
+        throw new Error(
+          `Failed to search attribute values: ${response.status}`
+        );
       }
 
-      const attributeValuesPage: Page<ProductAttributeValueDTO> = await response.json();
+      const attributeValuesPage: Page<ProductAttributeValueDTO> =
+        await response.json();
       return attributeValuesPage;
     } catch (error) {
       console.error("Error searching attribute values:", error);

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import Image from "next/image";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Filter, Search, ArrowLeft, Package, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   Select,
@@ -25,175 +25,38 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ProductFilters from "@/components/ProductFilters";
 import ProductCard from "@/components/ProductCard";
-import { FilterOptions } from "@/lib/filterService";
+import { StoreService } from "@/lib/storeService";
+import {
+  ProductService,
+  ProductSearchDTO,
+  ManyProductsDto,
+  Page,
+} from "@/lib/productService";
 
-// --- Mock Data Definitions (Duplicated from StoreProfileClient for isolation) ---
-
-interface MockShop {
-  id: string;
+interface ShopDetails {
+  shopId: string;
   name: string;
+  slug: string;
   description: string;
-  image: string;
+  logoUrl: string | null;
+  category: string;
+  address: string;
+  contactEmail: string;
+  contactPhone: string;
+  isActive: boolean;
+  status: string;
   rating: number;
   totalReviews: number;
   productCount: number;
-  location: string;
-  owner: string;
-  ownerAvatar: string;
-  category: string;
-  isVerified: boolean;
-  joinedDate: string;
+  createdAt: string;
+  owner: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatar: string | null;
+  };
 }
-
-const mockShops: MockShop[] = [
-  {
-    id: "1",
-    name: "Tech Haven Electronics",
-    description:
-      "Your one-stop shop for the latest electronics, gadgets, and tech accessories.",
-    image:
-      "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop",
-    rating: 4.8,
-    totalReviews: 1247,
-    productCount: 342,
-    location: "New York, USA",
-    owner: "John Smith",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John",
-    category: "Electronics",
-    isVerified: true,
-    joinedDate: "2020-03-15",
-  },
-  {
-    id: "10",
-    name: "Pet Paradise",
-    description:
-      "Everything your furry friends need. Premium pet supplies, food, toys, and accessories.",
-    image:
-      "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&h=600&fit=crop",
-    rating: 4.9,
-    totalReviews: 1456,
-    productCount: 378,
-    location: "Denver, USA",
-    owner: "Chris Thompson",
-    ownerAvatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Chris",
-    category: "Pets",
-    isVerified: true,
-    joinedDate: "2019-04-08",
-  },
-  // Add more from previous file if needed, but these are enough for testing store 10
-];
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  rating: number;
-  image: string;
-  category: string;
-  storeId?: string; // Optional linkage
-}
-
-// Generate more mock products for demonstration
-const generateMockProducts = (count: number): Product[] => {
-  const categories = [
-    "Electronics",
-    "Clothing",
-    "Home",
-    "Sports",
-    "Beauty",
-    "Pets",
-  ];
-  const productImages = [
-    "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&h=500&fit=crop", // Watch
-    "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop", // Headphones
-    "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&h=500&fit=crop", // Shoes
-    "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=500&h=500&fit=crop", // Camera
-    "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=500&h=500&fit=crop", // Dog Food
-    "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=500&h=500&fit=crop", // Laptop
-    "https://images.unsplash.com/photo-1576201836106-db1758fd1c97?w=500&h=500&fit=crop", // Dog Toy
-    "https://images.unsplash.com/photo-1587829741301-3e47d159be43?w=500&h=500&fit=crop", // Keyboard
-  ];
-
-  return Array.from({ length: count }).map((_, i) => ({
-    id: `p${i + 10}`, // Offset ID
-    name: `Product ${i + 1} - ${categories[i % categories.length]}`,
-    price: Math.floor(Math.random() * 200) + 10,
-    rating: (Math.floor(Math.random() * 20) + 30) / 10,
-    image: productImages[i % productImages.length],
-    category: categories[i % categories.length],
-    storeId: "10", // Force all to store 10 for demo purposes unless otherwise specified
-  }));
-};
-
-// Static initial list for stability
-const initialMockProducts: Product[] = [
-  {
-    id: "p1",
-    name: "Premium Wireless Headphones",
-    price: 139.99,
-    rating: 4.8,
-    image:
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop",
-    category: "Electronics",
-    storeId: "1",
-  },
-  {
-    id: "p2",
-    name: "Smart Fitness Watch",
-    price: 199.5,
-    rating: 4.2,
-    image:
-      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&h=500&fit=crop",
-    category: "Electronics",
-    storeId: "1",
-  },
-  {
-    id: "p3",
-    name: "Luxury Dog Bed",
-    price: 89.99,
-    rating: 4.9,
-    image:
-      "https://images.unsplash.com/photo-1591946614720-90a587da4a36?w=500&h=500&fit=crop",
-    category: "Pets",
-    storeId: "10",
-  },
-  {
-    id: "p4",
-    name: "Organic Cat Food",
-    price: 24.99,
-    rating: 4.7,
-    image:
-      "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=500&h=500&fit=crop",
-    category: "Pets",
-    storeId: "10",
-  },
-  {
-    id: "p5",
-    name: "Interactive Dog Toy",
-    price: 15.5,
-    rating: 4.5,
-    image:
-      "https://images.unsplash.com/photo-1576201836106-db1758fd1c97?w=500&h=500&fit=crop",
-    category: "Pets",
-    storeId: "10",
-  },
-  {
-    id: "p6",
-    name: "Pet Grooming Kit",
-    price: 45.0,
-    rating: 4.6,
-    image:
-      "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?w=500&h=500&fit=crop",
-    category: "Pets",
-    storeId: "10",
-  },
-];
-
-// Combine static and generated
-const allMockProducts = [
-  ...initialMockProducts,
-  ...generateMockProducts(20).map((p) => ({ ...p, category: "Pets" })),
-];
 
 interface FilterState {
   priceRange: number[];
@@ -210,12 +73,15 @@ interface FilterState {
 
 export function StoreProductsClient({ storeId }: { storeId: string }) {
   const router = useRouter();
-  const [store, setStore] = useState<MockShop | null>(null);
+  const [store, setStore] = useState<ShopDetails | null>(null);
+  const [products, setProducts] = useState<ManyProductsDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  // Filter States compatible with ProductFilters
   const [filters, setFilters] = useState<FilterState>({
-    priceRange: [0, 1000],
+    priceRange: [0, 2000],
     categories: [],
     brands: [],
     attributes: {},
@@ -227,111 +93,112 @@ export function StoreProductsClient({ storeId }: { storeId: string }) {
     searchTerm: "",
   });
 
-  const [sortBy, setSortBy] = useState("rating-desc");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortDirection, setSortDirection] = useState("desc");
+  const [currentPage, setCurrentPage] = useState(0); // 0-indexed for backend
+  const itemsPerPage = 12;
 
-  // Initial Data Load
+  // Fetch shop details
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const foundStore = mockShops.find((s) => s.id === storeId);
-      setStore(foundStore || null);
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    const fetchStoreDetails = async () => {
+      try {
+        setLoading(true);
+        const data = await StoreService.getShopDetails(storeId);
+        setStore(data);
+      } catch (error) {
+        console.error("Error fetching store details:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (storeId) {
+      fetchStoreDetails();
+    }
   }, [storeId]);
 
-  // Derived Data
-  const filteredProducts = useMemo(() => {
-    if (!store) return [];
+  // Fetch products with filters
+  const fetchProducts = useCallback(async () => {
+    if (!store) return;
 
-    // 1. Filter by Store (Mock logic: for store 10, show only pet/store 10 items)
-    // For demo purposes, if products don't strictly have storeId, we fallback to category matching loosely or show all for that mockup
-    let filtered = allMockProducts.filter((p) => {
-      if (p.storeId === storeId) return true;
-      // Fallback for demo: if store is Pet Paradise, show only Pets category items
-      return store.category === "Pets" && p.category === "Pets";
-    });
+    try {
+      setProductsLoading(true);
 
-    // 2. Search Term
-    if (filters.searchTerm) {
-      filtered = filtered.filter((p) =>
-        p.name.toLowerCase().includes(filters.searchTerm!.toLowerCase())
-      );
-    }
+      const searchDTO: ProductSearchDTO = {
+        shopId: store.shopId,
+        page: currentPage,
+        size: itemsPerPage,
+        sortBy: sortBy,
+        sortDirection: sortDirection,
+        name: filters.searchTerm || undefined,
+        searchKeyword: filters.searchTerm || undefined,
+        basePriceMin: filters.priceRange[0],
+        basePriceMax:
+          filters.priceRange[1] === 2000 ? undefined : filters.priceRange[1],
+        categoryNames:
+          filters.categories.length > 0 ? filters.categories : undefined,
+        brandNames: filters.brands.length > 0 ? filters.brands : undefined,
+        averageRatingMin: filters.rating || undefined,
+        inStock: filters.inStock,
+        isBestseller: filters.isBestseller || undefined,
+        isFeatured: filters.isFeatured || undefined,
+        discountIds:
+          filters.selectedDiscounts.length > 0
+            ? filters.selectedDiscounts
+            : undefined,
+      };
 
-    // 3. Price Range
-    filtered = filtered.filter(
-      (p) =>
-        p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]
-    );
+      console.log("Fetching products with DTO:", searchDTO);
 
-    // 4. Categories
-    if (filters.categories.length > 0) {
-      filtered = filtered.filter((p) =>
-        filters.categories.includes(p.category)
-      );
-    }
-
-    // 5. Rating
-    if (filters.rating) {
-      filtered = filtered.filter((p) => p.rating >= filters.rating!);
-    }
-
-    // Note: Brand, Attributes, etc. are ignored for this mock data simply because mock data doesn't have them populated well
-    // but the ProductFilters component will still emit them if selected.
-
-    // 6. Sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "price-asc":
-          return a.price - b.price;
-        case "price-desc":
-          return b.price - a.price;
-        case "rating-desc":
-          return b.rating - a.rating;
-        case "name-asc":
-          return a.name.localeCompare(b.name);
-        default:
-          return 0;
+      // Handle variant attributes if present
+      if (Object.keys(filters.attributes).length > 0) {
+        const attributeFilters: string[] = [];
+        Object.entries(filters.attributes).forEach(([type, values]) => {
+          values.forEach((val) => {
+            attributeFilters.push(`${type}:${val}`);
+          });
+        });
+        searchDTO.variantAttributes = attributeFilters;
       }
+
+      const response: Page<ManyProductsDto> =
+        await ProductService.searchProducts(searchDTO);
+      setProducts(response.content);
+      setTotalElements(response.totalElements);
+      setTotalPages(response.totalPages);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    } finally {
+      setProductsLoading(false);
+    }
+  }, [store, currentPage, sortBy, sortDirection, filters]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const handleSortChange = (value: string) => {
+    const [field, direction] = value.split("-");
+    setSortBy(field);
+    setSortDirection(direction || "desc");
+    setCurrentPage(0);
+  };
+
+  const clearAllFilters = () => {
+    setFilters({
+      priceRange: [0, 2000],
+      categories: [],
+      brands: [],
+      attributes: {},
+      selectedDiscounts: [],
+      rating: null,
+      inStock: true,
+      isBestseller: false,
+      isFeatured: false,
+      searchTerm: "",
     });
-
-    return filtered;
-  }, [store, filters, sortBy]);
-
-  // Pagination Logic
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  // Generate Custom Options for ProductFilters based on available data
-  const customFilterOptions: FilterOptions = useMemo(() => {
-    // Get all categories from the products relevant to this store
-    const storeProducts = allMockProducts.filter(
-      (p) => store && (p.storeId === store.id || p.category === store.category)
-    );
-
-    // Extract unique categories
-    const categoriesList = Array.from(
-      new Set(storeProducts.map((p) => p.category))
-    ).map((name, index) => ({
-      categoryId: index + 1,
-      name: name,
-      slug: name.toLowerCase(),
-      productCount: storeProducts.filter((p) => p.category === name).length,
-      subcategories: [],
-    }));
-
-    return {
-      categories: categoriesList,
-      brands: [], // Mock data doesn't have brands populated
-      attributes: [],
-      priceRange: { min: 0, max: 1000 },
-    };
-  }, [store]);
+    setCurrentPage(0);
+  };
 
   if (loading) {
     return (
@@ -341,7 +208,12 @@ export function StoreProductsClient({ storeId }: { storeId: string }) {
     );
   }
 
-  if (!store) return <div>Store not found</div>;
+  if (!store)
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        Store not found
+      </div>
+    );
 
   return (
     <div className="min-h-screen bg-transparent pb-16">
@@ -350,43 +222,49 @@ export function StoreProductsClient({ storeId }: { storeId: string }) {
         <div className="container mx-auto px-4 py-6">
           <Button
             variant="ghost"
-            className="mb-4 pl-0 hover:bg-transparent hover:text-primary"
+            className="mb-4 pl-0 hover:bg-transparent hover:text-primary transition-colors"
             onClick={() => router.push(`/stores/${storeId}`)}
           >
             <ArrowLeft className="h-4 w-4 mr-2" /> Back to Profile
           </Button>
 
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 border-2 border-primary/10">
-                <AvatarImage src={store.ownerAvatar} />
-                <AvatarFallback>{store.name.substring(0, 2)}</AvatarFallback>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+              <Avatar className="h-20 w-20 border-2 border-primary/10 shadow-sm">
+                <AvatarImage
+                  src={store.logoUrl || undefined}
+                  alt={store.name}
+                />
+                <AvatarFallback className="bg-primary/5 text-primary text-xl font-bold">
+                  {store.name.substring(0, 2).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
               <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
+                <h1 className="text-3xl font-bold flex items-center gap-2 tracking-tight">
                   {store.name}
-                  {store.isVerified && (
-                    <CheckCircle2 className="h-5 w-5 text-primary" />
+                  {store.isActive && (
+                    <CheckCircle2 className="h-6 w-6 text-primary fill-primary/10" />
                   )}
                 </h1>
-                <p className="text-muted-foreground text-sm">
-                  Browsing all products from {store.name}
+                <p className="text-muted-foreground text-base mt-1">
+                  Browsing all {totalElements} products from {store.name}
                 </p>
               </div>
             </div>
 
-            <div className="relative w-full md:w-[300px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="relative w-full md:w-[350px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/60" />
               <Input
                 placeholder="Search in this shop..."
-                className="pl-9"
+                className="pl-10 h-11 bg-muted/30 border-muted-foreground/20 focus:bg-background transition-all"
                 value={filters.searchTerm || ""}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFilters((prev) => ({
                     ...prev,
                     searchTerm: e.target.value,
-                  }))
-                }
+                  }));
+                  setCurrentPage(0);
+                }}
               />
             </div>
           </div>
@@ -396,97 +274,129 @@ export function StoreProductsClient({ storeId }: { storeId: string }) {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Desktop Sidebar Filters */}
-          <div className="hidden lg:block w-64 flex-shrink-0">
-            <ProductFilters
-              filters={filters}
-              onFiltersChange={setFilters}
-              customOptions={customFilterOptions}
-              hideTitle={true}
-            />
-          </div>
+          <aside className="hidden lg:block w-72 flex-shrink-0">
+            <div className="sticky top-24">
+              <ProductFilters
+                filters={filters}
+                onFiltersChange={(newFilters) => {
+                  setFilters(newFilters);
+                  setCurrentPage(0);
+                }}
+                hideTitle={false}
+                shopId={storeId}
+              />
+            </div>
+          </aside>
 
           {/* Mobile Filter Sheet */}
-          <div className="lg:hidden w-full">
+          <div className="lg:hidden w-full mb-4">
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" className="w-full">
-                  <Filter className="mr-2 h-4 w-4" /> Filters
+                <Button variant="outline" className="w-full h-11 shadow-sm">
+                  <Filter className="mr-2 h-4 w-4" /> Filters & Categories
                 </Button>
               </SheetTrigger>
               <SheetContent
                 side="left"
-                className="w-[300px] sm:w-[350px] overflow-y-auto"
+                className="w-[300px] sm:w-[400px] overflow-y-auto p-0"
               >
-                <ProductFilters
-                  filters={filters}
-                  onFiltersChange={setFilters}
-                  customOptions={customFilterOptions}
-                />
+                <div className="p-6">
+                  <h2 className="text-xl font-bold mb-6">Filters</h2>
+                  <ProductFilters
+                    filters={filters}
+                    onFiltersChange={(newFilters) => {
+                      setFilters(newFilters);
+                      setCurrentPage(0);
+                    }}
+                    shopId={storeId}
+                  />
+                </div>
               </SheetContent>
             </Sheet>
           </div>
 
           {/* Main Product Grid */}
-          <div className="flex-1">
-            <div className="flex justify-between items-center mb-6">
-              <p className="text-sm text-muted-foreground">
-                Showing {filteredProducts.length} products
-              </p>
+          <main className="flex-1">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="secondary"
+                  className="px-3 py-1 font-medium bg-primary/5 text-primary border-primary/10"
+                >
+                  {totalElements} Products
+                </Badge>
+                {productsLoading && (
+                  <span className="flex items-center text-sm text-muted-foreground animate-pulse">
+                    <Package className="h-4 w-4 mr-2" /> Updating...
+                  </span>
+                )}
+              </div>
 
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rating-desc">Highest Rated</SelectItem>
-                  <SelectItem value="price-asc">Price: Low to High</SelectItem>
-                  <SelectItem value="price-desc">Price: High to Low</SelectItem>
-                  <SelectItem value="name-asc">Name: A to Z</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <span className="text-sm font-medium text-muted-foreground whitespace-nowrap hidden sm:inline">
+                  Sort by:
+                </span>
+                <Select
+                  value={`${sortBy}-${sortDirection}`}
+                  onValueChange={handleSortChange}
+                >
+                  <SelectTrigger className="w-full sm:w-[200px] h-10 border-muted-foreground/20 shadow-sm">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="createdAt-desc">
+                      Newest Arrivals
+                    </SelectItem>
+                    <SelectItem value="price-asc">
+                      Price: Low to High
+                    </SelectItem>
+                    <SelectItem value="price-desc">
+                      Price: High to Low
+                    </SelectItem>
+                    <SelectItem value="productName-asc">
+                      Name: A to Z
+                    </SelectItem>
+                    <SelectItem value="averageRating-desc">
+                      Highest Rated
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {paginatedProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed rounded-lg">
-                <Package className="h-10 w-10 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
+            {productsLoading && products.length === 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-pulse">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="bg-muted rounded-xl aspect-[3/4]" />
+                ))}
+              </div>
+            ) : products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed rounded-2xl bg-muted/10">
+                <div className="bg-muted/20 p-6 rounded-full mb-6">
+                  <Package className="h-16 w-16 text-muted-foreground/40" />
+                </div>
+                <h3 className="text-2xl font-bold mb-3 tracking-tight">
                   No products found
                 </h3>
-                <p className="text-muted-foreground mb-6">
-                  Try adjusting your filters or search terms.
+                <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                  We couldn't find any products in this shop matching your
+                  current filters. Try relaxing your search criteria.
                 </p>
                 <Button
-                  variant="outline"
-                  onClick={() => {
-                    setFilters({
-                      priceRange: [0, 1000],
-                      categories: [],
-                      brands: [],
-                      attributes: {},
-                      selectedDiscounts: [],
-                      rating: null,
-                      inStock: true,
-                      isBestseller: false,
-                      isFeatured: false,
-                      searchTerm: "",
-                    });
-                  }}
+                  variant="default"
+                  size="lg"
+                  onClick={clearAllFilters}
+                  className="rounded-full px-8 shadow-md"
                 >
                   Clear all filters
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {paginatedProducts.map((product) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
+                {products.map((product) => (
                   <ProductCard
-                    key={product.id}
-                    id={product.id}
-                    name={product.name}
-                    price={product.price}
-                    rating={product.rating}
-                    reviewCount={Math.floor(Math.random() * 100) + 1}
-                    image={product.image}
-                    category={product.category}
+                    key={product.productId}
+                    {...ProductService.convertToProductCardFormat(product)}
                   />
                 ))}
               </div>
@@ -494,49 +404,77 @@ export function StoreProductsClient({ storeId }: { storeId: string }) {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-8">
-                <Pagination>
+              <div className="mt-16 flex justify-center">
+                <Pagination className="bg-background rounded-full border shadow-sm px-2 py-1">
                   <PaginationContent>
                     <PaginationItem>
                       <PaginationPrevious
                         href="#"
                         onClick={(e) => {
                           e.preventDefault();
-                          if (currentPage > 1) setCurrentPage(currentPage - 1);
+                          if (currentPage > 0) setCurrentPage(currentPage - 1);
                         }}
                         className={
-                          currentPage === 1
-                            ? "opacity-50 pointer-events-none"
-                            : ""
+                          currentPage === 0
+                            ? "opacity-30 pointer-events-none"
+                            : "hover:bg-muted"
                         }
                       />
                     </PaginationItem>
-                    {Array.from({ length: totalPages }).map((_, i) => (
-                      <PaginationItem key={i}>
-                        <PaginationLink
-                          href="#"
-                          isActive={currentPage === i + 1}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setCurrentPage(i + 1);
-                          }}
-                        >
-                          {i + 1}
-                        </PaginationLink>
-                      </PaginationItem>
-                    ))}
+
+                    {Array.from({ length: totalPages }).map((_, i) => {
+                      // Only show current page, first, last, and neighbors
+                      if (
+                        i === 0 ||
+                        i === totalPages - 1 ||
+                        (i >= currentPage - 1 && i <= currentPage + 1)
+                      ) {
+                        return (
+                          <PaginationItem key={i}>
+                            <PaginationLink
+                              href="#"
+                              isActive={currentPage === i}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setCurrentPage(i);
+                              }}
+                              className={
+                                currentPage === i
+                                  ? "shadow-sm"
+                                  : "hover:bg-muted"
+                              }
+                            >
+                              {i + 1}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      } else if (
+                        i === currentPage - 2 ||
+                        i === currentPage + 2
+                      ) {
+                        return (
+                          <PaginationItem key={i}>
+                            <span className="px-2 text-muted-foreground">
+                              ...
+                            </span>
+                          </PaginationItem>
+                        );
+                      }
+                      return null;
+                    })}
+
                     <PaginationItem>
                       <PaginationNext
                         href="#"
                         onClick={(e) => {
                           e.preventDefault();
-                          if (currentPage < totalPages)
+                          if (currentPage < totalPages - 1)
                             setCurrentPage(currentPage + 1);
                         }}
                         className={
-                          currentPage === totalPages
-                            ? "opacity-50 pointer-events-none"
-                            : ""
+                          currentPage === totalPages - 1
+                            ? "opacity-30 pointer-events-none"
+                            : "hover:bg-muted"
                         }
                       />
                     </PaginationItem>
@@ -544,7 +482,7 @@ export function StoreProductsClient({ storeId }: { storeId: string }) {
                 </Pagination>
               </div>
             )}
-          </div>
+          </main>
         </div>
       </div>
     </div>

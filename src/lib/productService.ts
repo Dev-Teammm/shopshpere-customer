@@ -272,6 +272,12 @@ export interface ProductSearchDTO {
 
   // Variant attributes
   variantAttributes?: string[]; // e.g., ["Color:Red", "Size:LG"]
+
+  // Shop scope
+  shopId?: string;
+
+  // Text search
+  searchKeyword?: string;
 }
 
 export interface Page<T> {
@@ -460,20 +466,23 @@ export const ProductService = {
   getVariantTotalStock: (variant: ProductVariantDTO): number => {
     // If warehouseStocks is available, use it for accurate stock count
     if (variant.warehouseStocks && variant.warehouseStocks.length > 0) {
-      return variant.warehouseStocks.reduce((total, stock) => total + stock.stockQuantity, 0);
+      return variant.warehouseStocks.reduce(
+        (total, stock) => total + stock.stockQuantity,
+        0
+      );
     }
-    
+
     // If stockQuantity is directly available (backward compatibility)
     if (variant.stockQuantity !== undefined) {
       return variant.stockQuantity;
     }
-    
+
     // Fall back to isInStock boolean - return 1 if in stock, 0 if not
     // This is for customer-facing APIs that don't expose exact stock quantities
     if (variant.isInStock !== undefined) {
       return variant.isInStock ? 1 : 0;
     }
-    
+
     // Default to 0 if no stock information is available
     return 0;
   },
@@ -486,17 +495,17 @@ export const ProductService = {
     if (variant.warehouseStocks && variant.warehouseStocks.length > 0) {
       return ProductService.getVariantTotalStock(variant) > 0;
     }
-    
+
     // If stockQuantity is directly available
     if (variant.stockQuantity !== undefined) {
       return variant.stockQuantity > 0;
     }
-    
+
     // Fall back to isInStock boolean
     if (variant.isInStock !== undefined) {
       return variant.isInStock;
     }
-    
+
     // Default to false if no stock information is available
     return false;
   },
@@ -508,7 +517,7 @@ export const ProductService = {
     if (!variant.warehouseStocks || variant.warehouseStocks.length === 0) {
       return false;
     }
-    return variant.warehouseStocks.some(stock => stock.isLowStock);
+    return variant.warehouseStocks.some((stock) => stock.isLowStock);
   },
 
   /**
@@ -711,7 +720,9 @@ export const ProductService = {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch featured products: ${response.status}`);
+        throw new Error(
+          `Failed to fetch featured products: ${response.status}`
+        );
       }
 
       const products: Page<ManyProductsDto> = await response.json();
@@ -741,7 +752,9 @@ export const ProductService = {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch bestseller products: ${response.status}`);
+        throw new Error(
+          `Failed to fetch bestseller products: ${response.status}`
+        );
       }
 
       const products: Page<ManyProductsDto> = await response.json();
@@ -771,7 +784,9 @@ export const ProductService = {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch new arrival products: ${response.status}`);
+        throw new Error(
+          `Failed to fetch new arrival products: ${response.status}`
+        );
       }
 
       const products: Page<ManyProductsDto> = await response.json();
@@ -794,7 +809,9 @@ export const ProductService = {
   ): Promise<Page<ManyProductsDto>> => {
     try {
       const response = await fetch(
-        `${API_ENDPOINTS.PRODUCTS_BY_CATEGORY(categoryId)}?page=${page}&size=${size}&sortBy=${sortBy}&sortDirection=${sortDirection}`,
+        `${API_ENDPOINTS.PRODUCTS_BY_CATEGORY(
+          categoryId
+        )}?page=${page}&size=${size}&sortBy=${sortBy}&sortDirection=${sortDirection}`,
         {
           method: "GET",
           headers: {
@@ -804,7 +821,9 @@ export const ProductService = {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch products by category: ${response.status}`);
+        throw new Error(
+          `Failed to fetch products by category: ${response.status}`
+        );
       }
 
       const products: Page<ManyProductsDto> = await response.json();
@@ -827,7 +846,9 @@ export const ProductService = {
   ): Promise<Page<ManyProductsDto>> => {
     try {
       const response = await fetch(
-        `${API_ENDPOINTS.PRODUCTS_BY_BRAND(brandId)}?page=${page}&size=${size}&sortBy=${sortBy}&sortDirection=${sortDirection}`,
+        `${API_ENDPOINTS.PRODUCTS_BY_BRAND(
+          brandId
+        )}?page=${page}&size=${size}&sortBy=${sortBy}&sortDirection=${sortDirection}`,
         {
           method: "GET",
           headers: {
@@ -837,7 +858,9 @@ export const ProductService = {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch products by brand: ${response.status}`);
+        throw new Error(
+          `Failed to fetch products by brand: ${response.status}`
+        );
       }
 
       const products: Page<ManyProductsDto> = await response.json();

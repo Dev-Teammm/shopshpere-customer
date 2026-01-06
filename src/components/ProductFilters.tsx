@@ -32,9 +32,16 @@ interface ProductFiltersProps {
   onFiltersChange: (filters: any | ((prevFilters: any) => any)) => void;
   customOptions?: FilterOptions;
   hideTitle?: boolean;
+  shopId?: string;
 }
 
-const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = false }: ProductFiltersProps) => {
+const ProductFilters = ({
+  filters,
+  onFiltersChange,
+  customOptions,
+  hideTitle = false,
+  shopId,
+}: ProductFiltersProps) => {
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<string[]>([]);
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(
@@ -43,7 +50,9 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
   const [filterErrors, setFilterErrors] = useState<FilterError[]>([]);
   const [isLoading, setIsLoading] = useState(!customOptions);
   const [retryCount, setRetryCount] = useState(0);
-  const [localPriceRange, setLocalPriceRange] = useState(filters.priceRange || [0, 1000]);
+  const [localPriceRange, setLocalPriceRange] = useState(
+    filters.priceRange || [0, 1000]
+  );
   const priceRangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isUpdatingPriceRef = useRef(false);
 
@@ -66,25 +75,37 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
   const [attributeTypes, setAttributeTypes] = useState<any[]>([]);
   const [attributeTypesLoading, setAttributeTypesLoading] = useState(false);
   const [attributeTypeSearch, setAttributeTypeSearch] = useState("");
-  const [searchedAttributeTypes, setSearchedAttributeTypes] = useState<any[]>([]);
-  const [attributeTypeSearchLoading, setAttributeTypeSearchLoading] = useState(false);
+  const [searchedAttributeTypes, setSearchedAttributeTypes] = useState<any[]>(
+    []
+  );
+  const [attributeTypeSearchLoading, setAttributeTypeSearchLoading] =
+    useState(false);
   const attributeTypeSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [expandedAttributeTypes, setExpandedAttributeTypes] = useState<number[]>([]);
-  const [attributeValues, setAttributeValues] = useState<Record<number, any[]>>({});
-  const [attributeValueSearch, setAttributeValueSearch] = useState<Record<number, string>>({});
-  const [attributeValueSearchLoading, setAttributeValueSearchLoading] = useState<Record<number, boolean>>({});
-  const attributeValueSearchTimeoutRefs = useRef<Record<number, NodeJS.Timeout | null>>({});
+  const [expandedAttributeTypes, setExpandedAttributeTypes] = useState<
+    number[]
+  >([]);
+  const [attributeValues, setAttributeValues] = useState<Record<number, any[]>>(
+    {}
+  );
+  const [attributeValueSearch, setAttributeValueSearch] = useState<
+    Record<number, string>
+  >({});
+  const [attributeValueSearchLoading, setAttributeValueSearchLoading] =
+    useState<Record<number, boolean>>({});
+  const attributeValueSearchTimeoutRefs = useRef<
+    Record<number, NodeJS.Timeout | null>
+  >({});
 
   // Load filter options from backend
   useEffect(() => {
     if (customOptions) {
-        setFilterOptions(customOptions);
-        setIsLoading(false);
+      setFilterOptions(customOptions);
+      setIsLoading(false);
     } else {
-        loadFilterOptions();
+      loadFilterOptions(shopId);
     }
-    loadActiveDiscounts();
-  }, [customOptions]);
+    loadActiveDiscounts(shopId);
+  }, [customOptions, shopId]);
 
   useEffect(() => {
     if (!isUpdatingPriceRef.current && filters.priceRange) {
@@ -92,15 +113,16 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
     }
   }, [filters.priceRange]);
 
-  const loadFilterOptions = async () => {
+  const loadFilterOptions = async (sid?: string) => {
     setIsLoading(true);
     try {
       // Fetch limited categories and brands with product counts (10 each)
-      const [categoriesResult, brandsResult, attributesResult] = await Promise.allSettled([
-        FilterService.fetchCategoriesWithProductCount(0, 10),
-        FilterService.fetchBrandsWithProductCount(0, 10),
-        FilterService.fetchAttributesWithValues(),
-      ]);
+      const [categoriesResult, brandsResult, attributesResult] =
+        await Promise.allSettled([
+          FilterService.fetchCategoriesWithProductCount(0, 10, sid),
+          FilterService.fetchBrandsWithProductCount(0, 10, sid),
+          FilterService.fetchAttributesWithValues(sid),
+        ]);
 
       const errors: FilterError[] = [];
       let categories: any[] = [];
@@ -162,11 +184,11 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
     }
   };
 
-  const loadActiveDiscounts = async () => {
+  const loadActiveDiscounts = async (sid?: string) => {
     setDiscountsLoading(true);
     setDiscountsError(null);
     try {
-      const discounts = await discountService.getActiveDiscounts();
+      const discounts = await discountService.getActiveDiscounts(sid);
       setActiveDiscounts(discounts);
     } catch (error) {
       console.error("Error loading active discounts:", error);
@@ -178,64 +200,80 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
   };
 
   // Search categories handler
-  const handleCategorySearch = useCallback(async (searchTerm: string) => {
-    setCategorySearch(searchTerm);
-    
-    if (categorySearchTimeoutRef.current) {
-      clearTimeout(categorySearchTimeoutRef.current);
-    }
+  const handleCategorySearch = useCallback(
+    async (searchTerm: string) => {
+      setCategorySearch(searchTerm);
 
-    if (!searchTerm.trim()) {
-      setSearchedCategories([]);
-      return;
-    }
-
-    categorySearchTimeoutRef.current = setTimeout(async () => {
-      setCategorySearchLoading(true);
-      try {
-        const result = await FilterService.fetchCategoriesWithSearch(searchTerm, 0, 10);
-        setSearchedCategories(result.content || []);
-      } catch (error) {
-        console.error("Error searching categories:", error);
-        setSearchedCategories([]);
-      } finally {
-        setCategorySearchLoading(false);
+      if (categorySearchTimeoutRef.current) {
+        clearTimeout(categorySearchTimeoutRef.current);
       }
-    }, 300);
-  }, []);
+
+      if (!searchTerm.trim()) {
+        setSearchedCategories([]);
+        return;
+      }
+
+      categorySearchTimeoutRef.current = setTimeout(async () => {
+        setCategorySearchLoading(true);
+        try {
+          const result = await FilterService.fetchCategoriesWithSearch(
+            searchTerm,
+            0,
+            10,
+            shopId
+          );
+          setSearchedCategories(result.content || []);
+        } catch (error) {
+          console.error("Error searching categories:", error);
+          setSearchedCategories([]);
+        } finally {
+          setCategorySearchLoading(false);
+        }
+      }, 300);
+    },
+    [shopId]
+  );
 
   // Search brands handler
-  const handleBrandSearch = useCallback(async (searchTerm: string) => {
-    setBrandSearch(searchTerm);
-    
-    if (brandSearchTimeoutRef.current) {
-      clearTimeout(brandSearchTimeoutRef.current);
-    }
+  const handleBrandSearch = useCallback(
+    async (searchTerm: string) => {
+      setBrandSearch(searchTerm);
 
-    if (!searchTerm.trim()) {
-      setSearchedBrands([]);
-      return;
-    }
-
-    brandSearchTimeoutRef.current = setTimeout(async () => {
-      setBrandSearchLoading(true);
-      try {
-        const result = await FilterService.fetchBrandsWithSearch(searchTerm, 0, 10);
-        setSearchedBrands(result.content || []);
-      } catch (error) {
-        console.error("Error searching brands:", error);
-        setSearchedBrands([]);
-      } finally {
-        setBrandSearchLoading(false);
+      if (brandSearchTimeoutRef.current) {
+        clearTimeout(brandSearchTimeoutRef.current);
       }
-    }, 300);
-  }, []);
+
+      if (!searchTerm.trim()) {
+        setSearchedBrands([]);
+        return;
+      }
+
+      brandSearchTimeoutRef.current = setTimeout(async () => {
+        setBrandSearchLoading(true);
+        try {
+          const result = await FilterService.fetchBrandsWithSearch(
+            searchTerm,
+            0,
+            10,
+            shopId
+          );
+          setSearchedBrands(result.content || []);
+        } catch (error) {
+          console.error("Error searching brands:", error);
+          setSearchedBrands([]);
+        } finally {
+          setBrandSearchLoading(false);
+        }
+      }, 300);
+    },
+    [shopId]
+  );
 
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1);
     setFilterErrors([]);
-    loadFilterOptions();
-    loadActiveDiscounts();
+    loadFilterOptions(shopId);
+    loadActiveDiscounts(shopId);
   };
 
   // Fallback data for when backend fails
@@ -275,7 +313,6 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
 
   const updatePriceRange = useCallback(
     (value: number[]) => {
-      
       isUpdatingPriceRef.current = true;
       setLocalPriceRange(value);
       if (priceRangeTimeoutRef.current) {
@@ -332,13 +369,13 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
 
   // Load attribute types on mount
   useEffect(() => {
-    loadAttributeTypes();
-  }, []);
+    loadAttributeTypes(shopId);
+  }, [shopId]);
 
-  const loadAttributeTypes = async () => {
+  const loadAttributeTypes = async (sid?: string) => {
     setAttributeTypesLoading(true);
     try {
-      const result = await FilterService.fetchAttributeTypes(0, 10);
+      const result = await FilterService.fetchAttributeTypes(0, 10, sid);
       setAttributeTypes(result.content || []);
     } catch (error) {
       console.error("Error loading attribute types:", error);
@@ -348,53 +385,69 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
     }
   };
 
-  const handleAttributeTypeSearch = useCallback(async (searchTerm: string) => {
-    setAttributeTypeSearch(searchTerm);
+  const handleAttributeTypeSearch = useCallback(
+    async (searchTerm: string) => {
+      setAttributeTypeSearch(searchTerm);
 
-    if (attributeTypeSearchTimeoutRef.current) {
-      clearTimeout(attributeTypeSearchTimeoutRef.current);
-    }
-
-    if (!searchTerm.trim()) {
-      setSearchedAttributeTypes([]);
-      setAttributeTypeSearchLoading(false);
-      return;
-    }
-
-    attributeTypeSearchTimeoutRef.current = setTimeout(async () => {
-      setAttributeTypeSearchLoading(true);
-      try {
-        const result = await FilterService.searchAttributeTypes(searchTerm, 0, 10);
-        setSearchedAttributeTypes(result.content || []);
-      } catch (error) {
-        console.error("Error searching attribute types:", error);
-        setSearchedAttributeTypes([]);
-      } finally {
-        setAttributeTypeSearchLoading(false);
+      if (attributeTypeSearchTimeoutRef.current) {
+        clearTimeout(attributeTypeSearchTimeoutRef.current);
       }
-    }, 300);
-  }, []);
+
+      if (!searchTerm.trim()) {
+        setSearchedAttributeTypes([]);
+        setAttributeTypeSearchLoading(false);
+        return;
+      }
+
+      attributeTypeSearchTimeoutRef.current = setTimeout(async () => {
+        setAttributeTypeSearchLoading(true);
+        try {
+          const result = await FilterService.searchAttributeTypes(
+            searchTerm,
+            0,
+            10,
+            shopId
+          );
+          setSearchedAttributeTypes(result.content || []);
+        } catch (error) {
+          console.error("Error searching attribute types:", error);
+          setSearchedAttributeTypes([]);
+        } finally {
+          setAttributeTypeSearchLoading(false);
+        }
+      }, 300);
+    },
+    [shopId]
+  );
 
   // Toggle attribute type expansion and load values
-  const toggleAttributeType = useCallback(async (attributeTypeId: number) => {
-    setExpandedAttributeTypes((prev) => {
-      const isExpanding = !prev.includes(attributeTypeId);
-      
-      if (isExpanding && !attributeValues[attributeTypeId]) {
-        // Load attribute values for this type
-        loadAttributeValues(attributeTypeId);
-      }
-      
-      return isExpanding
-        ? [...prev, attributeTypeId]
-        : prev.filter((id) => id !== attributeTypeId);
-    });
-  }, [attributeValues]);
+  const toggleAttributeType = useCallback(
+    async (attributeTypeId: number) => {
+      setExpandedAttributeTypes((prev) => {
+        const isExpanding = !prev.includes(attributeTypeId);
+
+        if (isExpanding && !attributeValues[attributeTypeId]) {
+          // Load attribute values for this type
+          loadAttributeValues(attributeTypeId, shopId);
+        }
+
+        return isExpanding
+          ? [...prev, attributeTypeId]
+          : prev.filter((id) => id !== attributeTypeId);
+      });
+    },
+    [attributeValues, shopId]
+  );
 
   // Load attribute values for a specific type
-  const loadAttributeValues = async (attributeTypeId: number) => {
+  const loadAttributeValues = async (attributeTypeId: number, sid?: string) => {
     try {
-      const result = await FilterService.fetchAttributeValuesByType(attributeTypeId, 0, 10);
+      const result = await FilterService.fetchAttributeValuesByType(
+        attributeTypeId,
+        0,
+        10,
+        sid
+      );
       setAttributeValues((prev) => ({
         ...prev,
         [attributeTypeId]: result.content || [],
@@ -422,39 +475,43 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
 
       if (!searchTerm.trim()) {
         // Reload default values
-        loadAttributeValues(attributeTypeId);
+        loadAttributeValues(attributeTypeId, shopId);
         return;
       }
 
-      attributeValueSearchTimeoutRefs.current[attributeTypeId] = setTimeout(async () => {
-        setAttributeValueSearchLoading((prev) => ({
-          ...prev,
-          [attributeTypeId]: true,
-        }));
-        try {
-          const result = await FilterService.searchAttributeValuesByType(
-            searchTerm,
-            attributeTypeId,
-            0,
-            10
-          );
-          setAttributeValues((prev) => ({
-            ...prev,
-            [attributeTypeId]: result.content || [],
-          }));
-        } catch (error) {
-          console.error("Error searching attribute values:", error);
-          setAttributeValues((prev) => ({
-            ...prev,
-            [attributeTypeId]: [],
-          }));
-        } finally {
+      attributeValueSearchTimeoutRefs.current[attributeTypeId] = setTimeout(
+        async () => {
           setAttributeValueSearchLoading((prev) => ({
             ...prev,
-            [attributeTypeId]: false,
+            [attributeTypeId]: true,
           }));
-        }
-      }, 300);
+          try {
+            const result = await FilterService.searchAttributeValuesByType(
+              searchTerm,
+              attributeTypeId,
+              0,
+              10,
+              shopId
+            );
+            setAttributeValues((prev) => ({
+              ...prev,
+              [attributeTypeId]: result.content || [],
+            }));
+          } catch (error) {
+            console.error("Error searching attribute values:", error);
+            setAttributeValues((prev) => ({
+              ...prev,
+              [attributeTypeId]: [],
+            }));
+          } finally {
+            setAttributeValueSearchLoading((prev) => ({
+              ...prev,
+              [attributeTypeId]: false,
+            }));
+          }
+        },
+        300
+      );
     },
     []
   );
@@ -824,21 +881,21 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                 searchedCategories.map((category) => renderCategory(category))
               ) : (
                 <div className="text-center py-4 text-gray-500">
-                  <p className="text-sm">No categories found for "{categorySearch}"</p>
+                  <p className="text-sm">
+                    No categories found for "{categorySearch}"
+                  </p>
                 </div>
               )
+            ) : // Show default categories
+            currentData.categories.length > 0 ? (
+              currentData.categories.map((category) => renderCategory(category))
             ) : (
-              // Show default categories
-              currentData.categories.length > 0 ? (
-                currentData.categories.map((category) => renderCategory(category))
-              ) : (
-                <div className="text-center py-4 text-gray-500">
-                  <p className="text-sm">No categories available</p>
-                  {filterErrors.some((e) => e.type === "categories") && (
-                    <p className="text-xs mt-1">Failed to load categories</p>
-                  )}
-                </div>
-              )
+              <div className="text-center py-4 text-gray-500">
+                <p className="text-sm">No categories available</p>
+                {filterErrors.some((e) => e.type === "categories") && (
+                  <p className="text-xs mt-1">Failed to load categories</p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -874,10 +931,15 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                 </div>
               ) : searchedBrands.length > 0 ? (
                 searchedBrands.map((brand) => (
-                  <div key={brand.brandId} className="flex items-center space-x-2">
+                  <div
+                    key={brand.brandId}
+                    className="flex items-center space-x-2"
+                  >
                     <Checkbox
                       id={`brand-${brand.brandId}`}
-                      checked={filters.brands?.includes(brand.brandName) || false}
+                      checked={
+                        filters.brands?.includes(brand.brandName) || false
+                      }
                       onCheckedChange={(checked) => {
                         const newBrands = checked
                           ? [...(filters.brands || []), brand.brandName]
@@ -903,42 +965,43 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                   <p className="text-sm">No brands found for "{brandSearch}"</p>
                 </div>
               )
-            ) : (
-              // Show default brands
-              currentData.brands.length > 0 ? (
-                currentData.brands.map((brand) => (
-                  <div key={brand.brandId} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`brand-${brand.brandId}`}
-                      checked={filters.brands?.includes(brand.brandName) || false}
-                      onCheckedChange={(checked) => {
-                        const newBrands = checked
-                          ? [...(filters.brands || []), brand.brandName]
-                          : (filters.brands || []).filter(
-                              (b: string) => b !== brand.brandName
-                            );
-                        updateFilters("brands", newBrands);
-                      }}
-                    />
-                    <label
-                      htmlFor={`brand-${brand.brandId}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer"
-                    >
-                      {brand.brandName}
-                    </label>
-                    <span className="text-xs text-gray-500">
-                      ({brand.productCount || 0})
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-4 text-gray-500">
-                  <p className="text-sm">No brands available</p>
-                  {filterErrors.some((e) => e.type === "brands") && (
-                    <p className="text-xs mt-1">Failed to load brands</p>
-                  )}
+            ) : // Show default brands
+            currentData.brands.length > 0 ? (
+              currentData.brands.map((brand) => (
+                <div
+                  key={brand.brandId}
+                  className="flex items-center space-x-2"
+                >
+                  <Checkbox
+                    id={`brand-${brand.brandId}`}
+                    checked={filters.brands?.includes(brand.brandName) || false}
+                    onCheckedChange={(checked) => {
+                      const newBrands = checked
+                        ? [...(filters.brands || []), brand.brandName]
+                        : (filters.brands || []).filter(
+                            (b: string) => b !== brand.brandName
+                          );
+                      updateFilters("brands", newBrands);
+                    }}
+                  />
+                  <label
+                    htmlFor={`brand-${brand.brandId}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer"
+                  >
+                    {brand.brandName}
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    ({brand.productCount || 0})
+                  </span>
                 </div>
-              )
+              ))
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                <p className="text-sm">No brands available</p>
+                {filterErrors.some((e) => e.type === "brands") && (
+                  <p className="text-xs mt-1">Failed to load brands</p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -978,19 +1041,28 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                 </div>
               ) : searchedAttributeTypes.length > 0 ? (
                 searchedAttributeTypes.map((attrType) => (
-                  <div key={attrType.attributeTypeId} className="border rounded-lg">
+                  <div
+                    key={attrType.attributeTypeId}
+                    className="border rounded-lg"
+                  >
                     {/* Attribute Type Header */}
                     <div
                       className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
-                      onClick={() => toggleAttributeType(attrType.attributeTypeId)}
+                      onClick={() =>
+                        toggleAttributeType(attrType.attributeTypeId)
+                      }
                     >
                       <div className="flex items-center space-x-2 flex-1">
-                        {expandedAttributeTypes.includes(attrType.attributeTypeId) ? (
+                        {expandedAttributeTypes.includes(
+                          attrType.attributeTypeId
+                        ) ? (
                           <ChevronDown className="h-4 w-4 text-gray-500" />
                         ) : (
                           <ChevronRight className="h-4 w-4 text-gray-500" />
                         )}
-                        <span className="text-sm font-medium">{attrType.name}</span>
+                        <span className="text-sm font-medium">
+                          {attrType.name}
+                        </span>
                       </div>
                       <span className="text-xs text-gray-500">
                         ({attrType.productCount || 0})
@@ -998,7 +1070,9 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                     </div>
 
                     {/* Attribute Values (Expanded) */}
-                    {expandedAttributeTypes.includes(attrType.attributeTypeId) && (
+                    {expandedAttributeTypes.includes(
+                      attrType.attributeTypeId
+                    ) && (
                       <div className="px-3 pb-3 space-y-2">
                         {/* Search bar for values */}
                         <div className="relative">
@@ -1006,7 +1080,10 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                           <input
                             type="text"
                             placeholder="Search values..."
-                            value={attributeValueSearch[attrType.attributeTypeId] || ""}
+                            value={
+                              attributeValueSearch[attrType.attributeTypeId] ||
+                              ""
+                            }
                             onChange={(e) =>
                               handleAttributeValueSearch(
                                 attrType.attributeTypeId,
@@ -1015,69 +1092,77 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                             }
                             className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
-                          {attributeValueSearchLoading[attrType.attributeTypeId] && (
+                          {attributeValueSearchLoading[
+                            attrType.attributeTypeId
+                          ] && (
                             <Loader2 className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
                           )}
                         </div>
 
                         {/* Values list */}
                         <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {attributeValues[attrType.attributeTypeId]?.map((value) => (
-                            <div
-                              key={value.attributeValueId}
-                              className="flex items-center space-x-2"
-                            >
-                              <Checkbox
-                                id={`attr-${value.attributeValueId}`}
-                                checked={
-                                  filters.attributes?.[attrType.name]?.includes(
-                                    value.value
-                                  ) || false
-                                }
-                                onCheckedChange={(checked) => {
-                                  const currentAttributes = filters.attributes || {};
-                                  const currentTypeValues =
-                                    currentAttributes[attrType.name] || [];
-                                  const newTypeValues = checked
-                                    ? [...currentTypeValues, value.value]
-                                    : currentTypeValues.filter(
-                                        (v: string) => v !== value.value
-                                      );
-
-                                  const newAttributes = {
-                                    ...currentAttributes,
-                                    [attrType.name]:
-                                      newTypeValues.length > 0
-                                        ? newTypeValues
-                                        : undefined,
-                                  };
-
-                                  // Remove empty arrays
-                                  Object.keys(newAttributes).forEach((key) => {
-                                    if (
-                                      !newAttributes[key] ||
-                                      newAttributes[key].length === 0
-                                    ) {
-                                      delete newAttributes[key];
-                                    }
-                                  });
-
-                                  updateFilters("attributes", newAttributes);
-                                }}
-                              />
-                              <label
-                                htmlFor={`attr-${value.attributeValueId}`}
-                                className="text-xs font-medium leading-none cursor-pointer flex-1"
+                          {attributeValues[attrType.attributeTypeId]?.map(
+                            (value) => (
+                              <div
+                                key={value.attributeValueId}
+                                className="flex items-center space-x-2"
                               >
-                                {value.value}
-                              </label>
-                              <span className="text-xs text-gray-500">
-                                ({value.productCount || 0})
-                              </span>
-                            </div>
-                          ))}
+                                <Checkbox
+                                  id={`attr-${value.attributeValueId}`}
+                                  checked={
+                                    filters.attributes?.[
+                                      attrType.name
+                                    ]?.includes(value.value) || false
+                                  }
+                                  onCheckedChange={(checked) => {
+                                    const currentAttributes =
+                                      filters.attributes || {};
+                                    const currentTypeValues =
+                                      currentAttributes[attrType.name] || [];
+                                    const newTypeValues = checked
+                                      ? [...currentTypeValues, value.value]
+                                      : currentTypeValues.filter(
+                                          (v: string) => v !== value.value
+                                        );
+
+                                    const newAttributes = {
+                                      ...currentAttributes,
+                                      [attrType.name]:
+                                        newTypeValues.length > 0
+                                          ? newTypeValues
+                                          : undefined,
+                                    };
+
+                                    // Remove empty arrays
+                                    Object.keys(newAttributes).forEach(
+                                      (key) => {
+                                        if (
+                                          !newAttributes[key] ||
+                                          newAttributes[key].length === 0
+                                        ) {
+                                          delete newAttributes[key];
+                                        }
+                                      }
+                                    );
+
+                                    updateFilters("attributes", newAttributes);
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`attr-${value.attributeValueId}`}
+                                  className="text-xs font-medium leading-none cursor-pointer flex-1"
+                                >
+                                  {value.value}
+                                </label>
+                                <span className="text-xs text-gray-500">
+                                  ({value.productCount || 0})
+                                </span>
+                              </div>
+                            )
+                          )}
                           {!attributeValues[attrType.attributeTypeId] ||
-                          attributeValues[attrType.attributeTypeId].length === 0 ? (
+                          attributeValues[attrType.attributeTypeId].length ===
+                            0 ? (
                             <p className="text-xs text-gray-500 text-center py-2">
                               No values available
                             </p>
@@ -1094,55 +1179,70 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                   </p>
                 </div>
               )
-            ) : (
-              // Show default attribute types
-              attributeTypes.length > 0 ? (
-                attributeTypes.map((attrType) => (
-                  <div key={attrType.attributeTypeId} className="border rounded-lg">
-                    {/* Attribute Type Header */}
-                    <div
-                      className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
-                      onClick={() => toggleAttributeType(attrType.attributeTypeId)}
-                    >
-                      <div className="flex items-center space-x-2 flex-1">
-                        {expandedAttributeTypes.includes(attrType.attributeTypeId) ? (
-                          <ChevronDown className="h-4 w-4 text-gray-500" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-gray-500" />
-                        )}
-                        <span className="text-sm font-medium">{attrType.name}</span>
-                      </div>
-                      <span className="text-xs text-gray-500">
-                        ({attrType.productCount || 0})
+            ) : // Show default attribute types
+            attributeTypes.length > 0 ? (
+              attributeTypes.map((attrType) => (
+                <div
+                  key={attrType.attributeTypeId}
+                  className="border rounded-lg"
+                >
+                  {/* Attribute Type Header */}
+                  <div
+                    className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                    onClick={() =>
+                      toggleAttributeType(attrType.attributeTypeId)
+                    }
+                  >
+                    <div className="flex items-center space-x-2 flex-1">
+                      {expandedAttributeTypes.includes(
+                        attrType.attributeTypeId
+                      ) ? (
+                        <ChevronDown className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-gray-500" />
+                      )}
+                      <span className="text-sm font-medium">
+                        {attrType.name}
                       </span>
                     </div>
+                    <span className="text-xs text-gray-500">
+                      ({attrType.productCount || 0})
+                    </span>
+                  </div>
 
-                    {/* Attribute Values (Expanded) */}
-                    {expandedAttributeTypes.includes(attrType.attributeTypeId) && (
-                      <div className="px-3 pb-3 space-y-2">
-                        {/* Search bar for values */}
-                        <div className="relative">
-                          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Search values..."
-                            value={attributeValueSearch[attrType.attributeTypeId] || ""}
-                            onChange={(e) =>
-                              handleAttributeValueSearch(
-                                attrType.attributeTypeId,
-                                e.target.value
-                              )
-                            }
-                            className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          {attributeValueSearchLoading[attrType.attributeTypeId] && (
-                            <Loader2 className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
-                          )}
-                        </div>
+                  {/* Attribute Values (Expanded) */}
+                  {expandedAttributeTypes.includes(
+                    attrType.attributeTypeId
+                  ) && (
+                    <div className="px-3 pb-3 space-y-2">
+                      {/* Search bar for values */}
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search values..."
+                          value={
+                            attributeValueSearch[attrType.attributeTypeId] || ""
+                          }
+                          onChange={(e) =>
+                            handleAttributeValueSearch(
+                              attrType.attributeTypeId,
+                              e.target.value
+                            )
+                          }
+                          className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        {attributeValueSearchLoading[
+                          attrType.attributeTypeId
+                        ] && (
+                          <Loader2 className="absolute right-2 top-1/2 transform -translate-y-1/2 h-3 w-3 animate-spin text-gray-400" />
+                        )}
+                      </div>
 
-                        {/* Values list */}
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {attributeValues[attrType.attributeTypeId]?.map((value) => (
+                      {/* Values list */}
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {attributeValues[attrType.attributeTypeId]?.map(
+                          (value) => (
                             <div
                               key={value.attributeValueId}
                               className="flex items-center space-x-2"
@@ -1155,7 +1255,8 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                                   ) || false
                                 }
                                 onCheckedChange={(checked) => {
-                                  const currentAttributes = filters.attributes || {};
+                                  const currentAttributes =
+                                    filters.attributes || {};
                                   const currentTypeValues =
                                     currentAttributes[attrType.name] || [];
                                   const newTypeValues = checked
@@ -1195,23 +1296,24 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                                 ({value.productCount || 0})
                               </span>
                             </div>
-                          ))}
-                          {!attributeValues[attrType.attributeTypeId] ||
-                          attributeValues[attrType.attributeTypeId].length === 0 ? (
-                            <p className="text-xs text-gray-500 text-center py-2">
-                              No values available
-                            </p>
-                          ) : null}
-                        </div>
+                          )
+                        )}
+                        {!attributeValues[attrType.attributeTypeId] ||
+                        attributeValues[attrType.attributeTypeId].length ===
+                          0 ? (
+                          <p className="text-xs text-gray-500 text-center py-2">
+                            No values available
+                          </p>
+                        ) : null}
                       </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-4 text-gray-500">
-                  <p className="text-sm">No attributes available</p>
+                    </div>
+                  )}
                 </div>
-              )
+              ))
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                <p className="text-sm">No attributes available</p>
+              </div>
             )}
           </div>
         </div>
@@ -1233,7 +1335,7 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
               <div className="text-center py-4 text-red-500">
                 <p className="text-sm">{discountsError}</p>
                 <Button
-                  onClick={loadActiveDiscounts}
+                  onClick={() => loadActiveDiscounts(shopId)}
                   size="sm"
                   variant="outline"
                   className="mt-2"
@@ -1305,7 +1407,7 @@ const ProductFilters = ({ filters, onFiltersChange, customOptions, hideTitle = f
                             onExpired={() => {
                               console.log(`Discount ${discount.name} expired`);
                               // Optionally refresh discounts when one expires
-                              loadActiveDiscounts();
+                              loadActiveDiscounts(shopId);
                             }}
                           />
                         </div>

@@ -34,6 +34,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { StoreService } from "@/lib/storeService";
+import ProductCard from "@/components/ProductCard";
 
 interface Product {
   productId: string;
@@ -46,6 +47,13 @@ interface Product {
   reviewCount: number;
   categoryName: string | null;
   isInStock: boolean;
+  brandName?: string | null;
+  shortDescription?: string | null;
+  isNew?: boolean;
+  isBestseller?: boolean;
+  isFeatured?: boolean;
+  hasActiveDiscount?: boolean;
+  discountPercentage?: number;
 }
 
 interface ShopDetails {
@@ -63,6 +71,14 @@ interface ShopDetails {
   rating: number;
   totalReviews: number;
   productCount: number;
+  createdAt: string;
+  owner: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatar: string | null;
+  };
   featuredProducts: Product[];
 }
 
@@ -171,14 +187,13 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                   <Avatar className="h-32 w-32 border-4 border-background shadow-md">
                     <AvatarImage
                       src={
-                        store.owner.avatar ||
-                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${store.owner.firstName}`
+                        store.logoUrl ||
+                        `https://api.dicebear.com/7.x/initials/svg?seed=${store.name}`
                       }
-                      alt={store.owner.firstName}
+                      alt={store.name}
                     />
                     <AvatarFallback>
-                      {store.owner.firstName.substring(0, 1).toUpperCase()}
-                      {store.owner.lastName.substring(0, 1).toUpperCase()}
+                      {store.name.substring(0, 1).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   {store.isActive && (
@@ -277,7 +292,7 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                   value="products"
                   className="rounded-none bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary text-base px-0 pb-3"
                 >
-                  Products
+                  Products ({store.productCount})
                 </TabsTrigger>
                 <TabsTrigger
                   value="about"
@@ -300,60 +315,28 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                   {store.featuredProducts.map((product) => (
-                    <Card
+                    <ProductCard
                       key={product.productId}
-                      className="group overflow-hidden border-border/40 hover:border-primary/50 transition-all duration-300 hover:shadow-lg bg-card/50"
-                    >
-                      <div className="relative aspect-square bg-gray-100 overflow-hidden">
-                        <Image
-                          src={
-                            product.primaryImage ||
-                            "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop"
-                          }
-                          alt={product.name}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            size="icon"
-                            variant="secondary"
-                            className="rounded-full shadow-md h-8 w-8"
-                          >
-                            <Heart className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-1">
-                              {product.categoryName}
-                            </p>
-                            <h4 className="font-semibold line-clamp-1 group-hover:text-primary transition-colors">
-                              {product.name}
-                            </h4>
-                          </div>
-                        </div>
-                        <div className="flex items-end justify-between mt-2">
-                          <span className="text-lg font-bold">
-                            ${product.price.toFixed(2)}
-                          </span>
-                          <div className="flex items-center text-sm text-yellow-500">
-                            <Star className="fill-current w-3.5 h-3.5 mr-1" />
-                            {product.rating}
-                          </div>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="p-4 pt-0">
-                        <Button
-                          className="w-full opacity-0 group-hover:opacity-100 transition-opacity"
-                          size="sm"
-                        >
-                          Add to Cart
-                        </Button>
-                      </CardFooter>
-                    </Card>
+                      id={product.productId}
+                      name={product.name}
+                      price={product.price}
+                      originalPrice={product.compareAtPrice || product.price}
+                      discountedPrice={product.price}
+                      discount={product.discountPercentage}
+                      rating={product.rating}
+                      reviewCount={product.reviewCount}
+                      image={
+                        product.primaryImage ||
+                        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop"
+                      }
+                      category={product.categoryName || undefined}
+                      brand={product.brandName || undefined}
+                      shortDescription={product.shortDescription || undefined}
+                      isNew={product.isNew}
+                      isBestseller={product.isBestseller}
+                      isFeatured={product.isFeatured}
+                      hasActiveDiscount={product.hasActiveDiscount}
+                    />
                   ))}
                 </div>
 
@@ -383,8 +366,8 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                       Welcome to {store.name}! We have been serving our
                       community since {new Date(store.createdAt).getFullYear()}.
                       Our mission is to provide high-quality{" "}
-                      {store.category.toLowerCase()} products at affordable
-                      prices.
+                      {store.category?.toLowerCase() || "premium"} products at
+                      affordable prices.
                     </p>
                     <p>
                       Located in {store.address}, we take pride in our fast

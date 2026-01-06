@@ -8,7 +8,9 @@ export interface PageProps {
   };
 }
 
-export default function StoreProductsPage({ params }: PageProps) {
+export default async function StoreProductsPage({ params }: PageProps) {
+  const { storeId } = await params;
+
   return (
     <Suspense
       fallback={
@@ -20,7 +22,7 @@ export default function StoreProductsPage({ params }: PageProps) {
         </div>
       }
     >
-      <StoreProductsClient storeId={params.storeId} />
+      <StoreProductsClient storeId={storeId} />
     </Suspense>
   );
 }
