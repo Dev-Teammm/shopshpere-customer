@@ -48,6 +48,25 @@ export interface CalculateOrderShippingRequest {
   userId?: string;
 }
 
+export interface ShopSummary {
+  shopId: string;
+  shopName: string;
+  subtotal: number;
+  discountAmount: number;
+  shippingCost: number;
+  taxAmount: number;
+  totalAmount: number;
+  rewardPoints: number;
+  rewardPointsValue: number;
+  productCount: number;
+  // Shipping details for this shop
+  distanceKm?: number;
+  costPerKm?: number;
+  selectedWarehouseName?: string;
+  selectedWarehouseCountry?: string;
+  isInternationalShipping?: boolean;
+}
+
 export interface PaymentSummaryDTO {
   subtotal: number;
   discountAmount: number;
@@ -57,12 +76,14 @@ export interface PaymentSummaryDTO {
   rewardPoints: number;
   rewardPointsValue: number;
   currency: string;
-  // New fields for distance and shipping details
+  // New fields for distance and shipping details (aggregated from farthest warehouse)
   distanceKm?: number;
   costPerKm?: number;
   selectedWarehouseName?: string;
   selectedWarehouseCountry?: string;
   isInternationalShipping?: boolean;
+  // Per-shop summaries
+  shopSummaries?: ShopSummary[];
 }
 
 class CheckoutService {
