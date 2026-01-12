@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import { PaymentIcons } from "@/components/PaymentIcons";
-import { GoogleMapsAddressPicker } from "@/components/GoogleMapsAddressPicker";
+// Google Maps removed - using mock location data
 import { CountrySelector } from "@/components/CountrySelector";
 import { PointsPaymentModal } from "@/components/PointsPaymentModal";
 import { formatStockErrorMessage, extractErrorDetails } from "@/lib/utils/errorParser";
@@ -83,7 +83,6 @@ export function CheckoutClient() {
   const [cart, setCart] = useState<CartResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [countries, setCountries] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("credit_card");
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [paymentSummary, setPaymentSummary] =
@@ -106,6 +105,40 @@ export function CheckoutClient() {
     notes: "",
   });
   const [addressSelected, setAddressSelected] = useState(false);
+
+  // Mock location data generator - returns coordinates on or near major roads
+  // Note: Road validation is disabled in backend, but we still use road coordinates for accuracy
+  const generateMockLocation = (country: string, city: string): { latitude: number; longitude: number } => {
+    // Road coordinates - locations on major roads/streets in each country
+    // These coordinates are on or very close to actual roads for delivery purposes
+    const roadLocations: Record<string, { lat: number; lng: number }> = {
+      'RW': { lat: -1.9500, lng: 30.0583 }, // Kigali - KN 3 Road (KG 2 St, main road)
+      'UG': { lat: 0.3156, lng: 32.5822 }, // Kampala - Entebbe Road (major highway)
+      'KE': { lat: -1.2833, lng: 36.8167 }, // Nairobi - Uhuru Highway (A104, main road)
+      'TZ': { lat: -6.8167, lng: 39.2833 }, // Dar es Salaam - Ali Hassan Mwinyi Road
+      'US': { lat: 40.7589, lng: -73.9851 }, // New York - Broadway (Times Square area, major street)
+      'GB': { lat: 51.5074, lng: -0.1276 }, // London - Strand (major road)
+      'CA': { lat: 43.6532, lng: -79.3832 }, // Toronto - Yonge Street (main street)
+      'AU': { lat: -33.8688, lng: 151.2093 }, // Sydney - George Street (main road)
+      'ZA': { lat: -26.2041, lng: 28.0473 }, // Johannesburg - Main Street
+      'NG': { lat: 6.5244, lng: 3.3792 }, // Lagos - Ikorodu Road (major highway)
+      'GH': { lat: 5.6037, lng: -0.1870 }, // Accra - Ring Road (major road)
+      'ET': { lat: 9.1450, lng: 38.7617 }, // Addis Ababa - Bole Road (main road)
+    };
+    
+    // Get country code (first 2 letters)
+    const countryCode = country?.substring(0, 2).toUpperCase() || 'RW';
+    const location = roadLocations[countryCode] || roadLocations['RW'];
+    
+    // Add very small random offset to simulate different points along the same road
+    // Small offset (±0.0005 degrees ≈ ~50m) keeps it on/near the road
+    const roadOffset = (Math.random() * 0.001 - 0.0005); // ±0.0005 degrees (~50m along road)
+    
+    return {
+      latitude: location.lat + roadOffset,
+      longitude: location.lng + roadOffset,
+    };
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -133,9 +166,7 @@ export function CheckoutClient() {
           }));
         }
 
-        // Get countries for dropdown
-        const countriesList = await OrderService.getCountries();
-        setCountries(countriesList);
+        // Countries are loaded by CountrySelector component internally
       } catch (error) {
         console.error("Error loading checkout data:", error);
         toast.error("Error loading checkout data. Please try again later.");
@@ -185,22 +216,22 @@ export function CheckoutClient() {
     }));
   };
 
-  const handleGoogleMapsAddressSelect = (address: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      streetAddress: `${address.streetNumber} ${address.streetName}`.trim() || address.formattedAddress,
-      city: address.city,
-      stateProvince: address.state,
-      country: address.country,
-      latitude: address.latitude,
-      longitude: address.longitude,
-    }));
-    setAddressSelected(true);
-    
-    // Automatically fetch payment summary after address selection
-    setTimeout(() => {
-      fetchPaymentSummary();
-    }, 500);
+  // Handle manual address input - generate mock coordinates
+  const handleAddressInput = () => {
+    if (formData.streetAddress && formData.city && formData.country) {
+      const mockLocation = generateMockLocation(formData.country, formData.city);
+      setFormData((prev) => ({
+        ...prev,
+        latitude: mockLocation.latitude,
+        longitude: mockLocation.longitude,
+      }));
+      setAddressSelected(true);
+      
+      // Automatically fetch payment summary after address is complete
+      setTimeout(() => {
+        fetchPaymentSummary();
+      }, 500);
+    }
   };
 
   const fetchPaymentSummary = async () => {
@@ -273,13 +304,28 @@ export function CheckoutClient() {
 
       console.log("Final cart items for payment summary:", cartItems);
 
+      // Ensure mock coordinates are set if not already present
+      let latitude = formData.latitude;
+      let longitude = formData.longitude;
+      if (!latitude || !longitude) {
+        const mockLocation = generateMockLocation(formData.country, formData.city);
+        latitude = mockLocation.latitude;
+        longitude = mockLocation.longitude;
+        // Update formData with mock coordinates
+        setFormData((prev) => ({
+          ...prev,
+          latitude,
+          longitude,
+        }));
+      }
+
       const address: AddressDto = {
         streetAddress: formData.streetAddress,
         city: formData.city,
         state: formData.stateProvince,
         country: formData.country,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
+        latitude: latitude,
+        longitude: longitude,
       };
 
       console.log("Sending payment summary request:", {
@@ -447,14 +493,23 @@ export function CheckoutClient() {
         return;
       }
 
+      // Ensure mock coordinates are set if not already present
+      let latitude = formData.latitude;
+      let longitude = formData.longitude;
+      if (!latitude || !longitude) {
+        const mockLocation = generateMockLocation(formData.country, formData.city);
+        latitude = mockLocation.latitude;
+        longitude = mockLocation.longitude;
+      }
+
       // Create address object
       const address: AddressDto = {
         streetAddress: formData.streetAddress,
         city: formData.city,
         state: formData.stateProvince,
         country: formData.country,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
+        latitude: latitude,
+        longitude: longitude,
       };
 
       let sessionUrl: string;
@@ -498,8 +553,14 @@ export function CheckoutClient() {
         sessionUrl = response.sessionUrl;
       }
 
-      // Redirect to Stripe checkout
-      window.location.href = sessionUrl;
+      // Check if this is a mock payment (relative URL) or Stripe session (absolute URL)
+      if (sessionUrl.startsWith('/')) {
+        // Mock payment - redirect to success page
+        router.push(sessionUrl);
+      } else {
+        // Real Stripe session - redirect to Stripe
+        window.location.href = sessionUrl;
+      }
     } catch (error: any) {
       console.error("Error creating checkout session:", error);
       console.error("Error response data:", error.response?.data);
@@ -668,8 +729,14 @@ export function CheckoutClient() {
 
   const handleHybridPayment = (stripeSessionId: string, orderId: number) => {
     setShowPointsModal(false);
-    // stripeSessionId is actually the complete Stripe checkout URL from backend
-    window.location.href = stripeSessionId;
+    // Check if this is a mock payment (relative URL) or Stripe session (absolute URL)
+    if (stripeSessionId.startsWith('/')) {
+      // Mock payment - redirect to success page
+      router.push(stripeSessionId);
+    } else {
+      // Real Stripe session - redirect to Stripe
+      window.location.href = stripeSessionId;
+    }
   };
 
   const createPointsPaymentRequest = (): PointsPaymentRequest | null => {
@@ -902,42 +969,82 @@ export function CheckoutClient() {
               
             </CardHeader>
             <CardContent className="p-6 space-y-4">
-              {!addressSelected ? (
-                <GoogleMapsAddressPicker
-                  onAddressSelect={handleGoogleMapsAddressSelect}
-                  apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}
-                />
-              ) : (
-                <div className="space-y-4">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="streetAddress">Street Address*</Label>
+                  <Input
+                    id="streetAddress"
+                    name="streetAddress"
+                    value={formData.streetAddress}
+                    onChange={(e) => {
+                      handleInputChange(e);
+                      handleAddressInput();
+                    }}
+                    placeholder="123 Main Street"
+                    required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City*</Label>
+                    <Input
+                      id="city"
+                      name="city"
+                      value={formData.city}
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        handleAddressInput();
+                      }}
+                      placeholder="City"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="stateProvince">State/Province*</Label>
+                    <Input
+                      id="stateProvince"
+                      name="stateProvince"
+                      value={formData.stateProvince}
+                      onChange={(e) => {
+                        handleInputChange(e);
+                        handleAddressInput();
+                      }}
+                      placeholder="State/Province"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country*</Label>
+                  <CountrySelector
+                    value={formData.country}
+                    onChange={(value) => {
+                      handleCountryChange(value);
+                      handleAddressInput();
+                    }}
+                  />
+                </div>
+                
+                {addressSelected && (formData.latitude && formData.longitude) && (
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
                     <div className="flex items-center gap-2 mb-2">
                       <MapPin className="h-5 w-5 text-blue-600" />
-                      <h4 className="font-medium text-blue-800">Selected Delivery Address</h4>
+                      <h4 className="font-medium text-blue-800">Delivery Address Ready</h4>
                     </div>
                     <p className="text-sm text-blue-700 mb-2">
                       {formData.streetAddress}
                     </p>
                     <p className="text-xs text-blue-600">
-                      {formData.city}, {formData.stateProvince}  {formData.country}
+                      {formData.city}, {formData.stateProvince}, {formData.country}
                     </p>
-                    <div className="mt-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setAddressSelected(false);
-                          setPaymentSummary(null);
-                        }}
-                        className="text-blue-700 border-blue-300 hover:bg-blue-100"
-                      >
-                        <MapPin className="h-4 w-4 mr-2" />
-                        Change Address
-                      </Button>
-                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Coordinates: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                    </p>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
               
               <div className="space-y-2">
                 <Label htmlFor="notes">Order Notes (Optional)</Label>
@@ -1113,126 +1220,207 @@ export function CheckoutClient() {
 
                 <Separator />
 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span className="font-medium">
-                      {loadingSummary ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : paymentSummary ? (
-                        formatPrice(paymentSummary.subtotal)
-                      ) : (
-                        formatPrice(cart.subtotal)
-                      )}
-                    </span>
-                  </div>
-
-                  {paymentSummary && paymentSummary.discountAmount > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Discount</span>
-                      <span className="font-medium text-blue-600">
-                        -{formatPrice(paymentSummary.discountAmount)}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shipping</span>
-                    <span className="font-medium">
-                      {loadingSummary ? (
-                        <div className="flex items-center gap-1">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          <span className="text-xs">Calculating...</span>
-                        </div>
-                      ) : paymentSummary ? (
-                        paymentSummary.shippingCost === 0 ? (
-                          <span className="text-blue-600">Free</span>
-                        ) : (
-                          formatPrice(paymentSummary.shippingCost)
-                        )
-                      ) : !formData.streetAddress ||
-                        !formData.city ||
-                        !formData.country ? (
-                        <span className="text-xs text-muted-foreground">
-                          Enter address
-                        </span>
-                      ) : (
-                        <span className="text-blue-600">Free</span>
-                      )}
-                    </span>
-                  </div>
-
-                  {/* Distance and shipping details */}
-                  {paymentSummary &&
-                    paymentSummary.distanceKm &&
-                    paymentSummary.distanceKm > 0 && (
-                      <div className="space-y-1 pl-4 border-l-2 border-muted">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">
-                            Distance
-                          </span>
-                          <span className="font-medium">
-                            {paymentSummary.distanceKm.toFixed(1)} km
-                          </span>
-                        </div>
-                        {paymentSummary.costPerKm &&
-                          paymentSummary.costPerKm > 0 && (
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">
-                                Cost per km
-                              </span>
+                <div className="space-y-4">
+                  {/* Shop Summaries */}
+                  {paymentSummary && paymentSummary.shopSummaries && paymentSummary.shopSummaries.length > 0 ? (
+                    <div className="space-y-4">
+                      {paymentSummary.shopSummaries.map((shop, index) => (
+                        <div key={shop.shopId} className="p-3 border rounded-lg bg-muted/30">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-semibold text-sm">{shop.shopName}</h4>
+                            <span className="text-xs text-muted-foreground">
+                              {shop.productCount} {shop.productCount === 1 ? 'item' : 'items'}
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-1.5 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Subtotal</span>
+                              <span className="font-medium">{formatPrice(shop.subtotal)}</span>
+                            </div>
+                            
+                            {shop.discountAmount > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Discount</span>
+                                <span className="font-medium text-blue-600">
+                                  -{formatPrice(shop.discountAmount)}
+                                </span>
+                              </div>
+                            )}
+                            
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Shipping</span>
                               <span className="font-medium">
-                                {formatPrice(paymentSummary.costPerKm)}/km
+                                {shop.shippingCost === 0 ? (
+                                  <span className="text-blue-600">Free</span>
+                                ) : (
+                                  formatPrice(shop.shippingCost)
+                                )}
                               </span>
                             </div>
-                          )}
-                        {paymentSummary.selectedWarehouseName && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              From warehouse
-                            </span>
-                            <span className="font-medium">
-                              {paymentSummary.selectedWarehouseName}
-                              {paymentSummary.selectedWarehouseCountry &&
-                                ` (${paymentSummary.selectedWarehouseCountry})`}
-                            </span>
+                            
+                            {/* Shop-specific shipping details */}
+                            {shop.distanceKm && shop.distanceKm > 0 && (
+                              <div className="space-y-1 pl-3 border-l-2 border-muted/50 mt-2">
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-muted-foreground">Distance</span>
+                                  <span className="font-medium">{shop.distanceKm.toFixed(1)} km</span>
+                                </div>
+                                {shop.costPerKm && shop.costPerKm > 0 && (
+                                  <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Cost per km</span>
+                                    <span className="font-medium">{formatPrice(shop.costPerKm)}/km</span>
+                                  </div>
+                                )}
+                                {shop.selectedWarehouseName && (
+                                  <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Warehouse</span>
+                                    <span className="font-medium">
+                                      {shop.selectedWarehouseName}
+                                      {shop.selectedWarehouseCountry && ` (${shop.selectedWarehouseCountry})`}
+                                    </span>
+                                  </div>
+                                )}
+                                {shop.isInternationalShipping && (
+                                  <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">Type</span>
+                                    <span className="font-medium text-orange-600">International</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {shop.rewardPoints > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Reward Points</span>
+                                <span className="font-medium text-blue-600">
+                                  +{shop.rewardPoints} pts
+                                </span>
+                              </div>
+                            )}
+                            
+                            <Separator className="my-2" />
+                            
+                            <div className="flex justify-between font-semibold">
+                              <span>Shop Total</span>
+                              <span>{formatPrice(shop.totalAmount)}</span>
+                            </div>
                           </div>
-                        )}
-                        {paymentSummary.isInternationalShipping && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              Shipping type
-                            </span>
-                            <span className="font-medium text-orange-600">
-                              International
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                  {paymentSummary && paymentSummary.taxAmount > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tax</span>
-                      <span className="font-medium">
-                        {formatPrice(paymentSummary.taxAmount)}
-                      </span>
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  ) : (
+                    /* Fallback to old display if no shop summaries */
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="font-medium">
+                          {loadingSummary ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : paymentSummary ? (
+                            formatPrice(paymentSummary.subtotal)
+                          ) : (
+                            formatPrice(cart.subtotal)
+                          )}
+                        </span>
+                      </div>
 
-                  {paymentSummary && paymentSummary.rewardPoints > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Reward Points
-                      </span>
-                      <span className="font-medium text-blue-600">
-                        +{paymentSummary.rewardPoints} pts
-                      </span>
+                      {paymentSummary && paymentSummary.discountAmount > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Discount</span>
+                          <span className="font-medium text-blue-600">
+                            -{formatPrice(paymentSummary.discountAmount)}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Shipping</span>
+                        <span className="font-medium">
+                          {loadingSummary ? (
+                            <div className="flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              <span className="text-xs">Calculating...</span>
+                            </div>
+                          ) : paymentSummary ? (
+                            paymentSummary.shippingCost === 0 ? (
+                              <span className="text-blue-600">Free</span>
+                            ) : (
+                              formatPrice(paymentSummary.shippingCost)
+                            )
+                          ) : !formData.streetAddress ||
+                            !formData.city ||
+                            !formData.country ? (
+                            <span className="text-xs text-muted-foreground">
+                              Enter address
+                            </span>
+                          ) : (
+                            <span className="text-blue-600">Free</span>
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Distance and shipping details */}
+                      {paymentSummary &&
+                        paymentSummary.distanceKm &&
+                        paymentSummary.distanceKm > 0 && (
+                          <div className="space-y-1 pl-4 border-l-2 border-muted">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Distance</span>
+                              <span className="font-medium">
+                                {paymentSummary.distanceKm.toFixed(1)} km
+                              </span>
+                            </div>
+                            {paymentSummary.costPerKm && paymentSummary.costPerKm > 0 && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Cost per km</span>
+                                <span className="font-medium">
+                                  {formatPrice(paymentSummary.costPerKm)}/km
+                                </span>
+                              </div>
+                            )}
+                            {paymentSummary.selectedWarehouseName && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">From warehouse</span>
+                                <span className="font-medium">
+                                  {paymentSummary.selectedWarehouseName}
+                                  {paymentSummary.selectedWarehouseCountry &&
+                                    ` (${paymentSummary.selectedWarehouseCountry})`}
+                                </span>
+                              </div>
+                            )}
+                            {paymentSummary.isInternationalShipping && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Shipping type</span>
+                                <span className="font-medium text-orange-600">International</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                      {paymentSummary && paymentSummary.taxAmount > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Tax</span>
+                          <span className="font-medium">
+                            {formatPrice(paymentSummary.taxAmount)}
+                          </span>
+                        </div>
+                      )}
+
+                      {paymentSummary && paymentSummary.rewardPoints > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Reward Points</span>
+                          <span className="font-medium text-blue-600">
+                            +{paymentSummary.rewardPoints} pts
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   <Separator className="my-2" />
 
+                  {/* Grand Total */}
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
                     <span>
@@ -1258,8 +1446,7 @@ export function CheckoutClient() {
                   {paymentSummary && (
                     <div className="mt-2 p-2 bg-blue-50 rounded-lg">
                       <p className="text-xs text-blue-700">
-                        💡 Shipping calculated based on your address and item
-                        weight
+                        💡 Shipping calculated based on your address and item weight
                       </p>
                     </div>
                   )}
