@@ -179,34 +179,58 @@ export interface OrderVariantInfo {
   images: string[];
 }
 
-export interface OrderItemResponse {
-  id: string;
-  productId: string;
-  variantId?: string;
-  quantity: number;
-  price: number;
-  totalPrice: number;
-  product?: OrderProductInfo;
-  variant?: OrderVariantInfo;
-  returnEligible?: boolean;
-  maxReturnDays?: number;
-  daysRemainingForReturn?: number;
-  returnInfo?: ReturnItemInfo;
+export interface ReturnAppealInfo {
+  id: number;
+  status: string;
+  reason: string;
+  description: string;
+  submittedAt: string;
+  decisionAt?: string;
+  decisionNotes?: string;
+}
+
+export interface ReturnRequestInfo {
+  id: number;
+  returnCode?: string;
+  status: string;
+  reason: string;
+  submittedAt: string;
+  decisionAt?: string;
+  decisionNotes?: string;
+  canBeAppealed: boolean;
+  appeal?: ReturnAppealInfo;
 }
 
 export interface ReturnItemInfo {
   hasReturnRequest: boolean;
   totalReturnedQuantity: number;
   remainingQuantity: number;
-  returnRequests: ReturnRequestSummary[];
+  returnRequests: ReturnRequestInfo[];
 }
 
-export interface ReturnRequestSummary {
-  returnRequestId: number;
-  returnedQuantity: number;
-  status: string;
-  reason: string;
-  submittedAt: string;
+export interface OrderItemResponse {
+  itemId: number;
+  id?: string; // For backward compatibility
+  productId: string;
+  productName: string;
+  productDescription: string;
+  productImages: string[];
+  product?: OrderProductInfo; // For backward compatibility
+  variant?: OrderVariantInfo; // For backward compatibility
+  variantId?: string;
+  quantity: number;
+  price: number;
+  originalPrice: number;
+  totalPrice: number;
+  discountPercentage: number;
+  discountName?: string;
+  hasDiscount: boolean;
+
+  // Return fields
+  returnEligible?: boolean;
+  maxReturnDays?: number;
+  daysRemainingForReturn?: number;
+  returnInfo?: ReturnItemInfo;
 }
 
 export interface DeliveryNote {
@@ -241,52 +265,95 @@ export interface OrderAddressResponse {
   longitude?: number;
 }
 
-export interface ReturnAppealInfo {
-  id: number;
+export interface StatusTimeline {
   status: string;
-  reason: string;
+  statusLabel: string;
   description: string;
-  submittedAt: string;
-  decisionAt?: string;
-  decisionNotes?: string;
+  timestamp: string | null;
+  isCompleted: boolean;
+  isCurrent: boolean;
 }
 
-export interface ReturnRequestInfo {
-  id: number;
-  status: string;
+export interface DeliveryInfo {
+  deliveryGroupName?: string;
+  delivererName?: string;
+  delivererPhone?: string;
+  scheduledAt?: string;
+  deliveryStartedAt?: string;
+  deliveredAt?: string;
+  hasDeliveryStarted: boolean;
+  pickupToken: string;
+}
+
+export interface ReturnRequest {
+  returnId: number;
+  returnCode: string;
   reason: string;
-  submittedAt: string;
-  decisionAt?: string;
-  decisionNotes?: string;
-  canBeAppealed: boolean;
-  appeal?: ReturnAppealInfo;
+  status: string;
+  requestedAt: string;
+  processedAt?: string;
+  notes?: string;
+}
+
+export interface ShopOrderGroup {
+  shopOrderId: number;
+  shopOrderCode: string;
+  shopId: string;
+  shopName: string;
+  shopLogo?: string;
+  shopSlug: string;
+  status: string;
+  timeline: StatusTimeline[];
+  items: OrderItemResponse[];
+  subtotal: number;
+  shippingCost: number;
+  discountAmount: number;
+  total: number;
+  deliveryInfo?: DeliveryInfo;
+  returnRequests: ReturnRequest[];
+  deliveryNote?: {
+    noteId: number;
+    note: string;
+    createdAt: string;
+  };
+  trackingToken: string;
+  pickupTokenUsed: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface OrderDetailsResponse {
-  id: string;
-  userId: string;
-  orderNumber: string;
-  pickupToken: string;
-  pickupTokenUsed: boolean;
-  status: string;
-  items: OrderItemResponse[] | null;
-  subtotal: number;
-  tax: number;
-  shipping: number;
-  discount: number;
-  total: number;
+  orderId: number;
+  orderCode: string;
+  orderNumber?: string; // For backward compatibility
+  orderDate: string;
+  createdAt?: string; // For backward compatibility
+  overallStatus: string;
+  status?: string; // For backward compatibility
+  customerInfo: OrderCustomerInfo | null;
   shippingAddress: OrderAddressResponse | null;
   billingAddress: OrderAddressResponse | null;
-  customerInfo: OrderCustomerInfo | null;
-  paymentMethod: string | null;
-  paymentStatus: string | null;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-  estimatedDelivery: string | null;
-  trackingNumber: string | null;
-  transaction?: OrderTransactionInfo | null;
-  returnRequest?: ReturnRequestInfo;
+  paymentInfo?: {
+    paymentMethod: string;
+    paymentStatus: string;
+    paymentDate?: string;
+    transactionRef?: string;
+    pointsUsed: number;
+    pointsValue: number;
+  };
+  // Backward compatibility fields
+  paymentMethod?: string | null;
+  paymentStatus?: string | null;
+
+  shopOrders: ShopOrderGroup[];
+  subtotal: number;
+  totalShipping?: number;
+  shipping?: number; // For backward compatibility
+  totalDiscount?: number;
+  discount?: number; // For backward compatibility
+  tax: number;
+  grandTotal: number;
+  total?: number; // For backward compatibility
 }
 
 export interface ErrorResponse {
@@ -342,27 +409,38 @@ export const OrderService = {
     try {
       // Validate cart items before sending to backend
       const validationErrors: string[] = [];
-      
+
       request.items.forEach((item, index) => {
         if (!item.productId && !item.variantId) {
-          validationErrors.push(`Item ${index + 1}: Must have either productId or variantId`);
+          validationErrors.push(
+            `Item ${index + 1}: Must have either productId or variantId`
+          );
         }
-        
-        if (item.variantId && (typeof item.variantId !== 'number' || item.variantId <= 0)) {
-          validationErrors.push(`Item ${index + 1}: Invalid variantId - must be a positive number`);
+
+        if (
+          item.variantId &&
+          (typeof item.variantId !== "number" || item.variantId <= 0)
+        ) {
+          validationErrors.push(
+            `Item ${index + 1}: Invalid variantId - must be a positive number`
+          );
         }
-        
-        if (item.productId && typeof item.productId !== 'string') {
-          validationErrors.push(`Item ${index + 1}: Invalid productId - must be a string`);
+
+        if (item.productId && typeof item.productId !== "string") {
+          validationErrors.push(
+            `Item ${index + 1}: Invalid productId - must be a string`
+          );
         }
-        
+
         if (!item.quantity || item.quantity <= 0) {
-          validationErrors.push(`Item ${index + 1}: Quantity must be greater than 0`);
+          validationErrors.push(
+            `Item ${index + 1}: Quantity must be greater than 0`
+          );
         }
       });
-      
+
       if (validationErrors.length > 0) {
-        throw new Error(`Validation errors: ${validationErrors.join(', ')}`);
+        throw new Error(`Validation errors: ${validationErrors.join(", ")}`);
       }
 
       const response = await fetch(
@@ -508,16 +586,21 @@ export const OrderService = {
   /**
    * Get order details by order number for the authenticated user
    */
-  getOrderDetailsByNumber: async (orderNumber: string): Promise<OrderDetailsResponse> => {
+  getOrderDetailsByNumber: async (
+    orderNumber: string
+  ): Promise<OrderDetailsResponse> => {
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${API_ENDPOINTS.ORDERS}/number/${orderNumber}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `${API_ENDPOINTS.ORDERS}/number/${orderNumber}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -552,7 +635,9 @@ export const OrderService = {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Error requesting tracking access");
+        throw new Error(
+          errorData.message || "Error requesting tracking access"
+        );
       }
 
       const data = await response.json();
@@ -573,7 +658,9 @@ export const OrderService = {
   ): Promise<OrderListResponse> => {
     try {
       const response = await fetch(
-        `${API_ENDPOINTS.ORDERS}/track/orders?token=${encodeURIComponent(token)}&page=${page}&size=${size}`,
+        `${API_ENDPOINTS.ORDERS}/track/orders?token=${encodeURIComponent(
+          token
+        )}&page=${page}&size=${size}`,
         {
           method: "GET",
           headers: {
@@ -604,7 +691,9 @@ export const OrderService = {
   ): Promise<OrderDetailsResponse> => {
     try {
       const response = await fetch(
-        `${API_ENDPOINTS.ORDERS}/track/order/${orderId}?token=${encodeURIComponent(token)}`,
+        `${
+          API_ENDPOINTS.ORDERS
+        }/track/order/${orderId}?token=${encodeURIComponent(token)}`,
         {
           method: "GET",
           headers: {
@@ -662,7 +751,10 @@ export const OrderService = {
     size: number = 10
   ): Promise<DeliveryNotesResponse> => {
     try {
-      const baseUrl = process.env.NODE_ENV === "production" ? "/api/v1" : "http://localhost:8080/api/v1";
+      const baseUrl =
+        process.env.NODE_ENV === "production"
+          ? "/api/v1"
+          : "http://localhost:8080/api/v1";
       const response = await fetch(
         `${baseUrl}/public/orders/${orderId}/delivery-notes?page=${page}&size=${size}`,
         {
