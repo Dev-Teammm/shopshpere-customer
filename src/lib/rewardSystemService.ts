@@ -15,8 +15,6 @@ export interface RewardSystem {
   isActive: boolean;
   isReviewPointsEnabled: boolean;
   reviewPointsAmount: number;
-  isSignupPointsEnabled: boolean;
-  signupPointsAmount: number;
   isPurchasePointsEnabled: boolean;
   isQuantityBasedEnabled: boolean;
   isAmountBasedEnabled: boolean;

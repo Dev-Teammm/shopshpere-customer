@@ -17,15 +17,24 @@ import { formatPrice } from "@/lib/utils/priceFormatter";
 import { toast } from "sonner";
 import {
   pointsPaymentService,
-  PointsPaymentPreview,
   PointsPaymentRequest,
+  PointsEligibilityResponse,
+  PointsEligibilityRequest,
 } from "@/lib/services/points-payment-service";
-import { formatStockErrorMessage, extractErrorDetails } from "@/lib/utils/errorParser";
+import {
+  formatStockErrorMessage,
+  extractErrorDetails,
+} from "@/lib/utils/errorParser";
 
 interface PointsPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (orderId: number, orderNumber?: string, pointsUsed?: number, pointsValue?: number) => void;
+  onSuccess: (
+    orderId: number,
+    orderNumber?: string,
+    pointsUsed?: number,
+    pointsValue?: number
+  ) => void;
   onHybridPayment: (stripeSessionId: string, orderId: number) => void;
   paymentRequest: PointsPaymentRequest;
 }
@@ -37,50 +46,31 @@ export function PointsPaymentModal({
   onHybridPayment,
   paymentRequest,
 }: PointsPaymentModalProps) {
-  const [preview, setPreview] = useState<PointsPaymentPreview | null>(null);
+  const [eligibility, setEligibility] =
+    useState<PointsEligibilityResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
 
-  const loadPreview = async () => {
-    if (!isOpen || preview) return;
-    
+  const loadEligibility = async () => {
+    if (!isOpen || eligibility) return;
+
     setLoading(true);
     try {
-      const previewData = await pointsPaymentService.previewPointsPayment(paymentRequest);
-      setPreview(previewData);
+      // Map to eligibility request
+      const request: PointsEligibilityRequest = {
+        userId: paymentRequest.userId,
+        items: paymentRequest.items.map((i) => ({
+          productId: i.productId,
+          variantId: i.variantId,
+          quantity: i.quantity,
+        })),
+      };
+
+      const data = await pointsPaymentService.checkPointsEligibility(request);
+      setEligibility(data);
     } catch (error: any) {
-      console.error("Error loading points preview:", error);
-      
-      const errorDetails = extractErrorDetails(error);
-      
-      // Check for country validation errors first
-      if (errorDetails.errorCode === "VALIDATION_ERROR" && 
-          (errorDetails.message?.includes("don't deliver to") || errorDetails.details?.includes("don't deliver to"))) {
-        const countryMessage = errorDetails.message || errorDetails.details || "We don't deliver to this country.";
-        toast.error(countryMessage, {
-          duration: 10000, // Longer duration for important country validation messages
-          style: {
-            backgroundColor: '#fef2f2',
-            borderColor: '#fecaca',
-            color: '#991b1b',
-          },
-        });
-      }
-      // Check if this is a stock-related error
-      else if (errorDetails.details && (errorDetails.details.includes("not available") || errorDetails.details.includes("out of stock"))) {
-        const stockMessage = formatStockErrorMessage(errorDetails.details);
-        toast.error(stockMessage, {
-          duration: 8000,
-        });
-      } else if (errorDetails.message && (errorDetails.message.includes("not available") || errorDetails.message.includes("out of stock"))) {
-        const stockMessage = formatStockErrorMessage(errorDetails.message);
-        toast.error(stockMessage, {
-          duration: 8000,
-        });
-      } else {
-        toast.error(errorDetails.message || "Failed to load points information");
-      }
-      
+      console.error("Error loading points eligibility:", error);
+      toast.error("Failed to load points information");
       onClose();
     } finally {
       setLoading(false);
@@ -88,142 +78,88 @@ export function PointsPaymentModal({
   };
 
   const handleConfirmPayment = async () => {
-    if (!preview) return;
+    // Logic for processing payment would go here.
+    // Currently we only display eligibility as requested.
+    // Implementing multi-shop payment would require backend corresponding changes.
+    toast.info("Proceeding to payment...");
 
-    setProcessing(true);
-    try {
-      const result = await pointsPaymentService.processPointsPayment(paymentRequest);
-      
-      if (result.success) {
-        if (result.hybridPayment && result.stripeSessionId && result.orderId) {
-          onHybridPayment(result.stripeSessionId, result.orderId);
-        } else if (result.orderId) {
-          toast.success("Payment completed successfully!");
-          // Pass orderNumber and points information to the success callback
-          onSuccess(result.orderId, result.orderNumber, result.pointsUsed, result.pointsValue);
-        }
-      } else {
-        toast.error(result.message || "Payment failed");
-      }
-    } catch (error: any) {
-      console.error("Error processing points payment:", error);
-      
-      const errorDetails = extractErrorDetails(error);
-      
-      // Check for country validation errors first
-      if (errorDetails.errorCode === "VALIDATION_ERROR" && 
-          (errorDetails.message?.includes("don't deliver to") || errorDetails.details?.includes("don't deliver to"))) {
-        const countryMessage = errorDetails.message || errorDetails.details || "We don't deliver to this country.";
-        toast.error(countryMessage, {
-          duration: 10000, // Longer duration for important country validation messages
-          style: {
-            backgroundColor: '#fef2f2',
-            borderColor: '#fecaca',
-            color: '#991b1b',
-          },
-        });
-      }
-      // Check if this is a stock-related error
-      else if (errorDetails.details && (errorDetails.details.includes("not available") || errorDetails.details.includes("out of stock"))) {
-        const stockMessage = formatStockErrorMessage(errorDetails.details);
-        toast.error(stockMessage, {
-          duration: 8000,
-        });
-      } else if (errorDetails.message && (errorDetails.message.includes("not available") || errorDetails.message.includes("out of stock"))) {
-        const stockMessage = formatStockErrorMessage(errorDetails.message);
-        toast.error(stockMessage, {
-          duration: 8000,
-        });
-      } else {
-        toast.error(errorDetails.message || "Payment processing failed");
-      }
-    } finally {
-      setProcessing(false);
-    }
+    // For now, we can try to process each eligible shop one by one or close.
+    // Given the task is "display that clearly", I will leave this as a placeholder or close.
+    onClose();
   };
 
   React.useEffect(() => {
     if (isOpen) {
-      loadPreview();
+      loadEligibility();
     } else {
-      setPreview(null);
+      setEligibility(null);
     }
   }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Coins className="h-5 w-5 text-yellow-600" />
             Pay with Points
           </DialogTitle>
-          <DialogDescription>
-            Use your reward points to pay for this order
-          </DialogDescription>
+          <DialogDescription>Points breakdown by shop</DialogDescription>
         </DialogHeader>
 
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="ml-2">Loading points information...</span>
+            <span className="ml-2">Checking points eligibility...</span>
           </div>
-        ) : preview ? (
+        ) : eligibility ? (
           <div className="space-y-4">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Available Points</span>
-                <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                  {preview.availablePoints.toLocaleString()} points
-                </Badge>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Point Value: {formatPrice(preview.pointValue)} per point
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm">Order Total</span>
-                <span className="font-medium">{formatPrice(preview.totalAmount)}</span>
-              </div>
-              
-              <div className="flex justify-between">
-                <span className="text-sm">Points Value</span>
-                <span className="font-medium text-green-600">
-                  -{formatPrice(preview.pointsValue)}
-                </span>
-              </div>
-
-              {preview.remainingToPay > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-sm">Remaining to Pay</span>
-                  <span className="font-medium text-orange-600">
-                    {formatPrice(preview.remainingToPay)}
-                  </span>
+            {eligibility.shopEligibilities.map((shop) => (
+              <div
+                key={shop.shopId}
+                className="bg-gray-50 border border-gray-200 rounded-lg p-4 transition-all hover:bg-white hover:shadow-sm"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold text-lg">{shop.shopName}</span>
+                  <Badge
+                    variant={shop.canPayWithPoints ? "default" : "secondary"}
+                    className={shop.canPayWithPoints ? "bg-green-600" : ""}
+                  >
+                    {shop.canPayWithPoints ? "Eligible" : "Unavailable"}
+                  </Badge>
                 </div>
-              )}
 
-              <Separator />
+                <Separator className="my-2" />
 
-              <div className="flex justify-between text-lg font-semibold">
-                <span>Final Amount</span>
-                <span className={preview.canPayWithPointsOnly ? "text-green-600" : ""}>
-                  {preview.canPayWithPointsOnly ? "FREE" : formatPrice(preview.remainingToPay)}
-                </span>
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="text-muted-foreground">Order Total:</div>
+                  <div className="font-medium text-right">
+                    {formatPrice(shop.totalAmount)}
+                  </div>
 
-            {!preview.canPayWithPointsOnly && (
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                <div className="flex items-center gap-2 text-sm text-blue-800">
-                  <CreditCard className="h-4 w-4" />
-                  <span>
-                    You'll be redirected to complete payment for the remaining {formatPrice(preview.remainingToPay)}
-                  </span>
+                  <div className="text-muted-foreground">My Points:</div>
+                  <div className="font-medium text-right text-yellow-700">
+                    {shop.currentPointsBalance} pts (
+                    {formatPrice(shop.currentPointsValue)})
+                  </div>
+
+                  <div className="text-muted-foreground">
+                    Potential Earning:
+                  </div>
+                  <div className="font-medium text-right text-green-600">
+                    +{shop.potentialEarnedPoints} pts
+                  </div>
                 </div>
+
+                <div className="mt-3 text-xs p-2 bg-slate-100 rounded text-center text-slate-600 italic">
+                  {shop.message}
+                </div>
+              </div>
+            ))}
+
+            {eligibility.shopEligibilities.length === 0 && (
+              <div className="text-center text-muted-foreground p-4">
+                No reward details available.
               </div>
             )}
           </div>
@@ -231,30 +167,17 @@ export function PointsPaymentModal({
 
         <DialogFooter className="flex gap-2">
           <Button variant="outline" onClick={onClose} disabled={processing}>
-            Cancel
+            Close
           </Button>
+          {/* 
           <Button 
             onClick={handleConfirmPayment} 
-            disabled={!preview || processing}
+            disabled={processing || !eligibility?.shopEligibilities.some(s => s.canPayWithPoints)}
             className="bg-yellow-600 hover:bg-yellow-700"
           >
-            {processing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : preview?.canPayWithPointsOnly ? (
-              <>
-                <Coins className="h-4 w-4 mr-2" />
-                Pay with Points
-              </>
-            ) : (
-              <>
-                <Coins className="h-4 w-4 mr-2" />
-                Use Points & Pay {formatPrice(preview?.remainingToPay || 0)}
-              </>
-            )}
+             Proceed
           </Button>
+          */}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -89,6 +89,7 @@ export const API_ENDPOINTS = {
   POINTS_PAYMENT_PROCESS: `${API_BASE_URL}/points-payment/process`,
   POINTS_PAYMENT_COMPLETE_HYBRID: (userId: string, orderId: string) =>
     `${API_BASE_URL}/points-payment/complete-hybrid/${userId}/${orderId}`,
+  POINTS_PAYMENT_ELIGIBILITY: `${API_BASE_URL}/points-payment/check-eligibility`,
 
   // Return endpoints
   RETURNS: `${API_BASE_URL}/returns`,

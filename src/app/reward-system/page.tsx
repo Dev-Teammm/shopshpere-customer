@@ -137,23 +137,6 @@ export default function RewardSystemPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {rewardSystem.isSignupPointsEnabled && rewardSystem.signupPointsAmount > 0 && (
-                <div className="flex items-start gap-4 p-4 border rounded-md">
-                  <div className="bg-blue-100 rounded-full p-3">
-                    <UserPlus className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold mb-1">Sign Up Bonus</h3>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Get rewarded just for joining our community
-                    </p>
-                    <Badge variant="secondary">
-                      {rewardSystem.signupPointsAmount} points = ${pointsToMoney(rewardSystem.signupPointsAmount)}
-                    </Badge>
-                  </div>
-                </div>
-              )}
-
               {rewardSystem.isPurchasePointsEnabled && (
                 <div className="flex items-start gap-4 p-4 border rounded-md">
                   <div className="bg-green-100 rounded-full p-3">
