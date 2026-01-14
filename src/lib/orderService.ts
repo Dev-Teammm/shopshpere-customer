@@ -134,6 +134,18 @@ export interface OrderCustomerInfo {
   phone: string;
 }
 
+export interface ShopOrderResponse {
+  id: number;
+  shopOrderCode: string;
+  shopName: string;
+  pickupToken: string;
+  pickupTokenUsed: boolean;
+  status: string;
+  items: any[];
+  shippingCost: number;
+  totalAmount: number;
+}
+
 export interface OrderResponse {
   id: string;
   userId: string;
@@ -157,6 +169,7 @@ export interface OrderResponse {
   estimatedDelivery: string | null;
   trackingNumber: string | null;
   transaction?: OrderTransactionInfo | null;
+  shopOrders?: ShopOrderResponse[];
 }
 
 export interface SimpleProduct {
@@ -309,6 +322,8 @@ export interface ShopOrderGroup {
   shippingCost: number;
   discountAmount: number;
   total: number;
+  pickupToken: string;
+  pickupTokenUsed: boolean;
   deliveryInfo?: DeliveryInfo;
   returnRequests: ReturnRequest[];
   deliveryNote?: {
@@ -317,7 +332,6 @@ export interface ShopOrderGroup {
     createdAt: string;
   };
   trackingToken: string;
-  pickupTokenUsed: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -333,6 +347,8 @@ export interface OrderDetailsResponse {
   customerInfo: OrderCustomerInfo | null;
   shippingAddress: OrderAddressResponse | null;
   billingAddress: OrderAddressResponse | null;
+  pickupToken?: string;
+  pickupTokenUsed?: boolean;
   paymentInfo?: {
     paymentMethod: string;
     paymentStatus: string;
@@ -353,6 +369,7 @@ export interface OrderDetailsResponse {
   discount?: number; // For backward compatibility
   tax: number;
   grandTotal: number;
+  transaction?: OrderTransactionInfo | null;
   total?: number; // For backward compatibility
 }
 
