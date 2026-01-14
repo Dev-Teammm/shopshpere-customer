@@ -9,6 +9,11 @@ export interface PointsPaymentPreview {
   pointValue: number;
 }
 
+export interface ShopPointsSelection {
+  shopId: string;
+  pointsToUse: number;
+}
+
 export interface PointsPaymentRequest {
   userId: string;
   items: Array<{
@@ -26,6 +31,16 @@ export interface PointsPaymentRequest {
     longitude?: number;
   };
   useAllAvailablePoints: boolean;
+  selectedShopsForPoints?: ShopPointsSelection[];
+}
+
+export interface ShopPointsDeduction {
+  shopId: string;
+  shopName: string;
+  pointsUsed: number;
+  pointsValue: number;
+  shopOrderAmount: number;
+  remainingForShop: number;
 }
 
 export interface PointsPaymentResult {
@@ -36,8 +51,9 @@ export interface PointsPaymentResult {
   pointsUsed: number;
   pointsValue: number;
   remainingAmount: number;
-  stripeSessionId?: string; // Contains the complete Stripe checkout URL for redirection
+  stripeSessionId?: string;
   hybridPayment: boolean;
+  shopPointsDeductions?: ShopPointsDeduction[];
 }
 
 export interface ShopPointsEligibility {
@@ -64,6 +80,14 @@ export interface PointsEligibilityRequest {
     variantId?: number;
     quantity: number;
   }>;
+  shippingAddress?: {
+    streetAddress: string;
+    city: string;
+    state: string;
+    country: string;
+    latitude?: number;
+    longitude?: number;
+  };
 }
 
 class PointsPaymentService {
