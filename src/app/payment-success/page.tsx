@@ -871,14 +871,29 @@ function PaymentSuccessContent() {
                       </div>
                     )}
 
+                    {/* Order Total Before Points */}
+                    <div className="pt-2 border-t border-gray-200 flex justify-between text-gray-800 text-sm font-semibold">
+                      <span>Order Total:</span>
+                      <span>$ {orderDetails.total?.toLocaleString()}</span>
+                    </div>
+
                     {/* Points Info */}
                     {((pointsUsed && pointsUsed > 0) ||
                       (orderDetails?.transaction?.pointsUsed &&
                         orderDetails.transaction.pointsUsed > 0)) && (
-                      <div className="pt-2 border-t border-gray-200 mt-2 space-y-2">
-                        <div className="flex justify-between text-blue-700 text-sm font-medium">
-                          <span>Points Applied:</span>
-                          <span>
+                      <div className="pt-2 border-t border-blue-200 mt-2 space-y-2 bg-blue-50 -mx-5 px-5 pb-3 rounded-b-lg">
+                        <div className="flex justify-between text-blue-800 text-sm font-medium pt-2">
+                          <span className="flex items-center gap-1">
+                            <svg
+                              className="w-4 h-4"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            Points Applied:
+                          </span>
+                          <span className="font-bold">
                             {(
                               pointsUsed ||
                               orderDetails?.transaction?.pointsUsed ||
@@ -887,9 +902,9 @@ function PaymentSuccessContent() {
                             pts
                           </span>
                         </div>
-                        <div className="flex justify-between text-blue-700 text-xs italic">
-                          <span>Value Saved:</span>
-                          <span>
+                        <div className="flex justify-between text-blue-700 text-sm">
+                          <span>Points Value:</span>
+                          <span className="font-semibold text-green-600">
                             -$
                             {(
                               pointsValue ||
@@ -901,12 +916,39 @@ function PaymentSuccessContent() {
                       </div>
                     )}
 
+                    {/* Final Amount Paid */}
                     <div className="pt-3 border-t-2 border-gray-200 mt-3 flex justify-between items-center text-xl font-black text-gray-900">
-                      <span>TOTAL</span>
+                      <span>
+                        {(pointsUsed && pointsUsed > 0) ||
+                        (orderDetails?.transaction?.pointsUsed &&
+                          orderDetails.transaction.pointsUsed > 0)
+                          ? "AMOUNT PAID"
+                          : "TOTAL"}
+                      </span>
                       <span className="text-primary">
-                        $ {orderDetails.total?.toLocaleString()}
+                        ${" "}
+                        {(() => {
+                          const total = orderDetails.total || 0;
+                          const ptsValue =
+                            pointsValue ||
+                            orderDetails?.transaction?.pointsValue ||
+                            0;
+                          const amountPaid = Math.max(0, total - ptsValue);
+                          return amountPaid.toLocaleString();
+                        })()}
                       </span>
                     </div>
+
+                    {/* Show if fully covered by points */}
+                    {((pointsValue &&
+                      pointsValue >= (orderDetails.total || 0)) ||
+                      (orderDetails?.transaction?.pointsValue &&
+                        orderDetails.transaction.pointsValue >=
+                          (orderDetails.total || 0))) && (
+                      <div className="text-center text-green-600 text-sm font-semibold bg-green-50 rounded-lg py-2 mt-2">
+                        ✓ Fully paid with points!
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

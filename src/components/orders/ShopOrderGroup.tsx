@@ -501,15 +501,43 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                       </span>
                     </div>
                   )}
+                  {shopOrder.pointsUsed !== undefined &&
+                    shopOrder.pointsUsed > 0 && (
+                      <div className="flex justify-between text-sm py-1 px-2 bg-blue-500/10 rounded mt-1">
+                        <span className="text-blue-300 flex items-center gap-1 italic">
+                          <Info className="h-3 w-3" />
+                          Points Applied:
+                        </span>
+                        <span className="font-bold text-blue-300">
+                          -{formatCurrency(shopOrder.pointsValue || 0)}
+                          <span className="text-[10px] ml-1 opacity-70 italic">
+                            ({shopOrder.pointsUsed} pts)
+                          </span>
+                        </span>
+                      </div>
+                    )}
                   <Separator className="bg-slate-800 my-2" />
                   <div className="flex justify-between items-baseline">
                     <span className="text-sm font-bold uppercase tracking-wider text-slate-400 font-mono">
-                      Grand Total
+                      {shopOrder.pointsUsed && shopOrder.pointsUsed > 0
+                        ? "Amount Charged"
+                        : "Grand Total"}
                     </span>
                     <span className="text-2xl font-black text-blue-400">
-                      {formatCurrency(shopOrder.total)}
+                      {formatCurrency(
+                        Math.max(
+                          0,
+                          shopOrder.total - (shopOrder.pointsValue || 0)
+                        )
+                      )}
                     </span>
                   </div>
+                  {shopOrder.pointsUsed !== undefined &&
+                    shopOrder.pointsUsed > 0 && (
+                      <p className="text-[10px] text-slate-500 text-right italic font-medium mt-1">
+                        *Original total: {formatCurrency(shopOrder.total)}
+                      </p>
+                    )}
                 </div>
               </div>
 
