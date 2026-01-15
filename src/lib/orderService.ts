@@ -321,6 +321,8 @@ export interface ShopOrderGroup {
   subtotal: number;
   shippingCost: number;
   discountAmount: number;
+  pointsUsed?: number;
+  pointsValue?: number;
   total: number;
   pickupToken: string;
   pickupTokenUsed: boolean;
