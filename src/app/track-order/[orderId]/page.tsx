@@ -452,6 +452,20 @@ export default function OrderDetailPage() {
                       {orderDetails.paymentInfo.paymentStatus}
                     </Badge>
                   </div>
+                  {orderDetails.paymentInfo.pointsUsed > 0 && (
+                    <div className="flex justify-between text-sm py-1.5 px-2 bg-blue-50/50 rounded-md border border-blue-100/50">
+                      <span className="text-blue-600 flex items-center gap-1 italic">
+                        <Info className="h-3 w-3" />
+                        Points Applied:
+                      </span>
+                      <span className="font-bold text-blue-700">
+                        -{formatCurrency(orderDetails.paymentInfo.pointsValue)}
+                        <span className="text-[10px] ml-1 opacity-70 italic">
+                          ({orderDetails.paymentInfo.pointsUsed} pts)
+                        </span>
+                      </span>
+                    </div>
+                  )}
                   {orderDetails.paymentInfo.transactionRef && (
                     <div className="flex justify-between text-xs text-slate-400 mt-1">
                       <span>
