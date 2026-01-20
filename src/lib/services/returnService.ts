@@ -107,7 +107,7 @@ export class ReturnService {
    * Use getReturnRequestsByOrderId instead for multiple returns
    */
   static async getReturnByOrderId(
-    orderId: number
+    orderId: number,
   ): Promise<ReturnRequest | null> {
     try {
       const response = await fetch(`${this.baseUrl}/order/${orderId}`, {
@@ -122,7 +122,7 @@ export class ReturnService {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Failed to fetch return information"
+          errorData.message || "Failed to fetch return information",
         );
       }
 
@@ -138,7 +138,7 @@ export class ReturnService {
    */
   static async getReturnRequestsByOrderId(
     orderId: number,
-    customerId: string
+    customerId: string,
   ): Promise<ReturnRequest[]> {
     try {
       const response = await fetch(
@@ -146,7 +146,7 @@ export class ReturnService {
         {
           method: "GET",
           headers: getAuthHeaders(),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -166,7 +166,7 @@ export class ReturnService {
    */
   static async getReturnRequestsByShopOrderId(
     shopOrderId: number,
-    customerId: string
+    customerId: string,
   ): Promise<ReturnRequest[]> {
     try {
       const response = await fetch(
@@ -174,7 +174,7 @@ export class ReturnService {
         {
           method: "GET",
           headers: getAuthHeaders(),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -194,16 +194,16 @@ export class ReturnService {
    */
   static async getReturnRequestsByOrderNumberAndToken(
     orderNumber: string,
-    token: string
+    token: string,
   ): Promise<ReturnRequest[]> {
     try {
       const response = await fetch(
         `${this.baseUrl}/order/guest?orderNumber=${encodeURIComponent(
-          orderNumber
+          orderNumber,
         )}&token=${encodeURIComponent(token)}`,
         {
           method: "GET",
-        }
+        },
       );
 
       if (!response.ok) {
@@ -221,9 +221,16 @@ export class ReturnService {
   /**
    * Get return request by return ID
    */
-  static async getReturnById(returnId: number): Promise<ReturnRequest> {
+  static async getReturnById(
+    returnId: number,
+    token?: string,
+  ): Promise<ReturnRequest> {
     try {
-      const response = await fetch(`${this.baseUrl}/${returnId}`, {
+      const url = token
+        ? `${this.baseUrl}/${returnId}?token=${encodeURIComponent(token)}`
+        : `${this.baseUrl}/${returnId}`;
+
+      const response = await fetch(url, {
         method: "GET",
         headers: getAuthHeaders(),
       });
@@ -231,7 +238,7 @@ export class ReturnService {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Failed to fetch return information"
+          errorData.message || "Failed to fetch return information",
         );
       }
 
@@ -246,16 +253,18 @@ export class ReturnService {
    * Get return request by order number
    */
   static async getReturnByOrderNumber(
-    orderNumber: string
+    orderNumber: string,
+    token?: string,
   ): Promise<ReturnRequest | null> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/order-number/${orderNumber}`,
-        {
-          method: "GET",
-          headers: getAuthHeaders(),
-        }
-      );
+      const url = token
+        ? `${this.baseUrl}/order-number/${orderNumber}?token=${encodeURIComponent(token)}`
+        : `${this.baseUrl}/order-number/${orderNumber}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
 
       if (response.status === 404) {
         return null; // No return request found for this order
@@ -264,7 +273,7 @@ export class ReturnService {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Failed to fetch return information"
+          errorData.message || "Failed to fetch return information",
         );
       }
 
@@ -302,7 +311,7 @@ export class ReturnService {
    * Submit a return request using tokenized access (for guest users)
    */
   static async submitTokenizedReturnRequest(
-    returnData: FormData
+    returnData: FormData,
   ): Promise<ReturnRequest> {
     try {
       const response = await fetch(`${this.baseUrl}/submit/tokenized`, {
@@ -361,7 +370,7 @@ export class ReturnService {
    * Submit an appeal using tracking token (for guest users)
    */
   static async submitTokenizedAppeal(
-    appealData: FormData
+    appealData: FormData,
   ): Promise<ReturnAppeal> {
     try {
       const response = await fetch(`${API_BASE_URL}/appeals/submit/tokenized`, {
@@ -385,7 +394,7 @@ export class ReturnService {
    * Get appeal by return request ID
    */
   static async getAppealByReturnId(
-    returnId: number
+    returnId: number,
   ): Promise<ReturnAppeal | null> {
     try {
       const response = await fetch(
@@ -393,7 +402,7 @@ export class ReturnService {
         {
           method: "GET",
           headers: getAuthHeaders(),
-        }
+        },
       );
 
       if (response.status === 404) {
@@ -403,7 +412,7 @@ export class ReturnService {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Failed to fetch appeal information"
+          errorData.message || "Failed to fetch appeal information",
         );
       }
 

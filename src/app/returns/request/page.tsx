@@ -350,7 +350,8 @@ export default function ReturnRequestPage() {
       }
 
       toast.success("Return request submitted successfully!");
-      router.push(`/returns/success?requestId=${response.id}`);
+      const tokenParam = trackingToken ? `&token=${trackingToken}` : "";
+      router.push(`/returns/success?requestId=${response.id}${tokenParam}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to submit return request");
     } finally {

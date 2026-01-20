@@ -46,13 +46,14 @@ export default function ReturnInfoPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [returnRequest, setReturnRequest] = useState<ReturnRequest | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const orderNumber = searchParams.get("orderNumber");
   const returnId = searchParams.get("returnId");
+  const token = searchParams.get("token");
 
   useEffect(() => {
     const fetchReturnInfo = async () => {
@@ -69,9 +70,15 @@ export default function ReturnInfoPage() {
         let returnData: ReturnRequest | null = null;
 
         if (returnId) {
-          returnData = await ReturnService.getReturnById(Number(returnId));
+          returnData = await ReturnService.getReturnById(
+            Number(returnId),
+            token || undefined,
+          );
         } else if (orderNumber) {
-          returnData = await ReturnService.getReturnByOrderNumber(orderNumber);
+          returnData = await ReturnService.getReturnByOrderNumber(
+            orderNumber,
+            token || undefined,
+          );
         }
 
         if (!returnData) {
@@ -89,7 +96,7 @@ export default function ReturnInfoPage() {
     };
 
     fetchReturnInfo();
-  }, [orderNumber, returnId]);
+  }, [orderNumber, returnId, token]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -245,7 +252,7 @@ export default function ReturnInfoPage() {
                   {getStatusIcon(returnRequest.status)}
                   <Badge
                     className={ReturnService.getStatusColor(
-                      returnRequest.status
+                      returnRequest.status,
                     )}
                   >
                     {returnRequest.status}
@@ -292,7 +299,7 @@ export default function ReturnInfoPage() {
                       <span className="text-sm">
                         <strong>Refund Amount:</strong>{" "}
                         {ReturnService.formatCurrency(
-                          returnRequest.refundAmount
+                          returnRequest.refundAmount,
                         )}
                       </span>
                     </div>
@@ -346,8 +353,8 @@ export default function ReturnInfoPage() {
                 returnRequest.status === ReturnStatus.APPROVED
                   ? "border-green-200 bg-green-50"
                   : returnRequest.status === ReturnStatus.DENIED
-                  ? "border-red-200 bg-red-50"
-                  : ""
+                    ? "border-red-200 bg-red-50"
+                    : ""
               }
             >
               <CardHeader>
@@ -431,7 +438,7 @@ export default function ReturnInfoPage() {
                             </div>
                           </div>
                         </div>
-                      )
+                      ),
                     )}
                   </div>
                 </CardContent>
@@ -478,7 +485,7 @@ export default function ReturnInfoPage() {
                             Quantity: {item.returnQuantity}
                             {item.unitPrice &&
                               ` • Unit Price: ${ReturnService.formatCurrency(
-                                item.unitPrice
+                                item.unitPrice,
                               )}`}
                           </p>
                           {item.totalPrice && (
@@ -563,8 +570,8 @@ export default function ReturnInfoPage() {
                       returnRequest.status == ReturnStatus.PENDING
                         ? "bg-gray-500"
                         : returnRequest.status == ReturnStatus.APPROVED
-                        ? "bg-green-500"
-                        : "bg-red-500"
+                          ? "bg-green-500"
+                          : "bg-red-500"
                     }`}
                   ></div>
                   <div>
@@ -585,8 +592,8 @@ export default function ReturnInfoPage() {
                           returnRequest.status === ReturnStatus.COMPLETED
                             ? "bg-green-500"
                             : returnRequest.status === ReturnStatus.PROCESSING
-                            ? "bg-yellow-500"
-                            : "bg-blue-500"
+                              ? "bg-yellow-500"
+                              : "bg-blue-500"
                         }`}
                       ></div>
                       <div>
@@ -595,8 +602,8 @@ export default function ReturnInfoPage() {
                           {returnRequest.status === ReturnStatus.COMPLETED
                             ? "Completed"
                             : returnRequest.status === ReturnStatus.PROCESSING
-                            ? "In progress"
-                            : "Ready to process"}
+                              ? "In progress"
+                              : "Ready to process"}
                         </p>
                       </div>
                     </div>
@@ -637,7 +644,7 @@ export default function ReturnInfoPage() {
                     {getStatusIcon(returnRequest.returnAppeal.status)}
                     <Badge
                       className={ReturnService.getStatusColor(
-                        returnRequest.returnAppeal.status
+                        returnRequest.returnAppeal.status,
                       )}
                     >
                       {returnRequest.returnAppeal.status}
@@ -687,7 +694,7 @@ export default function ReturnInfoPage() {
                   )}
                   {returnRequest.returnAppeal.mediaAttachments &&
                     Array.isArray(
-                      returnRequest.returnAppeal.mediaAttachments
+                      returnRequest.returnAppeal.mediaAttachments,
                     ) &&
                     returnRequest.returnAppeal.mediaAttachments.length > 0 && (
                       <div>
@@ -725,7 +732,7 @@ export default function ReturnInfoPage() {
                                   </Button>
                                 </div>
                               </div>
-                            )
+                            ),
                           )}
                         </div>
                       </div>
@@ -765,7 +772,7 @@ export default function ReturnInfoPage() {
                   !returnRequest.returnAppeal && (
                     <Button asChild className="bg-blue-600 hover:bg-blue-700">
                       <Link
-                        href={`/returns/appeal?returnId=${returnRequest.id}`}
+                        href={`/returns/appeal?returnRequestId=${returnRequest.id}${token ? `&token=${token}` : ""}`}
                         className="flex items-center gap-2"
                       >
                         <MessageSquare className="h-4 w-4" />

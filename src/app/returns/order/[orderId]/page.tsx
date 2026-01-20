@@ -65,7 +65,7 @@ export default function OrderReturnRequestsPage() {
         }
         requests = await ReturnService.getReturnRequestsByOrderNumberAndToken(
           orderNumber,
-          trackingToken
+          trackingToken,
         );
       } else {
         // Authenticated user
@@ -90,12 +90,12 @@ export default function OrderReturnRequestsPage() {
         if (isShopOrder) {
           requests = await ReturnService.getReturnRequestsByShopOrderId(
             parseInt(orderId),
-            customerId || JSON.parse(localStorage.getItem("user") || "{}").id
+            customerId || JSON.parse(localStorage.getItem("user") || "{}").id,
           );
         } else {
           requests = await ReturnService.getReturnRequestsByOrderId(
             parseInt(orderId),
-            customerId || JSON.parse(localStorage.getItem("user") || "{}").id
+            customerId || JSON.parse(localStorage.getItem("user") || "{}").id,
           );
         }
       }
@@ -235,7 +235,7 @@ export default function OrderReturnRequestsPage() {
                   onClick={() => {
                     if (isGuestMode) {
                       router.push(
-                        `/returns/request?orderId=${orderId}&token=${trackingToken}`
+                        `/returns/request?orderNumber=${orderNumber}&token=${trackingToken}`,
                       );
                     } else {
                       router.push(`/returns/request?orderId=${orderId}`);
@@ -470,7 +470,7 @@ export default function OrderReturnRequestsPage() {
                             <span className="text-sm font-medium">Status</span>
                             <Badge
                               className={getStatusColor(
-                                request.returnAppeal.status
+                                request.returnAppeal.status,
                               )}
                             >
                               {request.returnAppeal.status}
@@ -538,9 +538,15 @@ export default function OrderReturnRequestsPage() {
                         </Alert>
                         <Button
                           onClick={() => {
-                            router.push(
-                              `/returns/appeal?returnRequestId=${request.id}`
-                            );
+                            if (isGuestMode) {
+                              router.push(
+                                `/returns/appeal?returnRequestId=${request.id}&token=${trackingToken}`,
+                              );
+                            } else {
+                              router.push(
+                                `/returns/appeal?returnRequestId=${request.id}`,
+                              );
+                            }
                           }}
                           className="w-full mt-4"
                           variant="outline"

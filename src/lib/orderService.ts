@@ -170,6 +170,7 @@ export interface OrderResponse {
   trackingNumber: string | null;
   transaction?: OrderTransactionInfo | null;
   shopOrders?: ShopOrderResponse[];
+  hasReturnRequest?: boolean;
 }
 
 export interface SimpleProduct {
