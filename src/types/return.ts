@@ -20,7 +20,7 @@ export interface OrderItem {
   quantity: number;
   price: number;
   totalPrice: number;
-  
+
   // Return eligibility fields
   maxReturnDays: number;
   deliveredAt?: string;
@@ -32,6 +32,8 @@ export interface OrderDetails {
   id: string | number;
   userId?: string;
   orderNumber: string;
+  shopId?: string;
+  shopName?: string;
   pickupToken?: string;
   pickupTokenUsed?: boolean;
   status: string;
@@ -76,10 +78,11 @@ export interface ReturnItem {
 }
 
 export interface SubmitReturnRequest {
-  customerId: string;
+  customerId: string | null;
   orderId: string;
   reason: string;
   returnItems: ReturnItem[];
+  trackingToken?: string;
 }
 
 export interface SubmitGuestReturnRequest {

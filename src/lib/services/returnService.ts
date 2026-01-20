@@ -89,13 +89,13 @@ export enum ReturnStatus {
   DENIED = "DENIED",
   PROCESSING = "PROCESSING",
   COMPLETED = "COMPLETED",
-  CANCELLED = "CANCELLED"
+  CANCELLED = "CANCELLED",
 }
 
 export enum AppealStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
-  DENIED = "DENIED"
+  DENIED = "DENIED",
 }
 
 // Return Service
@@ -106,7 +106,9 @@ export class ReturnService {
    * Get return request by order ID (DEPRECATED - returns single request)
    * Use getReturnRequestsByOrderId instead for multiple returns
    */
-  static async getReturnByOrderId(orderId: number): Promise<ReturnRequest | null> {
+  static async getReturnByOrderId(
+    orderId: number
+  ): Promise<ReturnRequest | null> {
     try {
       const response = await fetch(`${this.baseUrl}/order/${orderId}`, {
         method: "GET",
@@ -119,7 +121,9 @@ export class ReturnService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch return information");
+        throw new Error(
+          errorData.message || "Failed to fetch return information"
+        );
       }
 
       return await response.json();
@@ -153,6 +157,34 @@ export class ReturnService {
       return await response.json();
     } catch (error) {
       console.error("Error fetching return requests by order ID:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all return requests by shop order ID for authenticated users
+   */
+  static async getReturnRequestsByShopOrderId(
+    shopOrderId: number,
+    customerId: string
+  ): Promise<ReturnRequest[]> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/shop-order/${shopOrderId}?customerId=${customerId}`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch return requests");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching return requests by shop order ID:", error);
       throw error;
     }
   }
@@ -198,7 +230,9 @@ export class ReturnService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch return information");
+        throw new Error(
+          errorData.message || "Failed to fetch return information"
+        );
       }
 
       return await response.json();
@@ -211,12 +245,17 @@ export class ReturnService {
   /**
    * Get return request by order number
    */
-  static async getReturnByOrderNumber(orderNumber: string): Promise<ReturnRequest | null> {
+  static async getReturnByOrderNumber(
+    orderNumber: string
+  ): Promise<ReturnRequest | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/order-number/${orderNumber}`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(
+        `${this.baseUrl}/order-number/${orderNumber}`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
 
       if (response.status === 404) {
         return null; // No return request found for this order
@@ -224,7 +263,9 @@ export class ReturnService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch return information");
+        throw new Error(
+          errorData.message || "Failed to fetch return information"
+        );
       }
 
       return await response.json();
@@ -260,7 +301,9 @@ export class ReturnService {
   /**
    * Submit a return request using tokenized access (for guest users)
    */
-  static async submitTokenizedReturnRequest(returnData: FormData): Promise<ReturnRequest> {
+  static async submitTokenizedReturnRequest(
+    returnData: FormData
+  ): Promise<ReturnRequest> {
     try {
       const response = await fetch(`${this.baseUrl}/submit/tokenized`, {
         method: "POST",
@@ -285,9 +328,15 @@ export class ReturnService {
   static async submitAppeal(appealData: FormData | any): Promise<ReturnAppeal> {
     try {
       const isFormData = appealData instanceof FormData;
-      
-      const headers = isFormData 
-        ? { Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("authToken") : null}` }
+
+      const headers = isFormData
+        ? {
+            Authorization: `Bearer ${
+              typeof window !== "undefined"
+                ? localStorage.getItem("authToken")
+                : null
+            }`,
+          }
         : getAuthHeaders();
 
       const response = await fetch(`${API_BASE_URL}/appeals/submit`, {
@@ -311,7 +360,9 @@ export class ReturnService {
   /**
    * Submit an appeal using tracking token (for guest users)
    */
-  static async submitTokenizedAppeal(appealData: FormData): Promise<ReturnAppeal> {
+  static async submitTokenizedAppeal(
+    appealData: FormData
+  ): Promise<ReturnAppeal> {
     try {
       const response = await fetch(`${API_BASE_URL}/appeals/submit/tokenized`, {
         method: "POST",
@@ -333,12 +384,17 @@ export class ReturnService {
   /**
    * Get appeal by return request ID
    */
-  static async getAppealByReturnId(returnId: number): Promise<ReturnAppeal | null> {
+  static async getAppealByReturnId(
+    returnId: number
+  ): Promise<ReturnAppeal | null> {
     try {
-      const response = await fetch(`${API_BASE_URL}/appeals/return/${returnId}`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/appeals/return/${returnId}`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
 
       if (response.status === 404) {
         return null; // No appeal found for this return
@@ -346,7 +402,9 @@ export class ReturnService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch appeal information");
+        throw new Error(
+          errorData.message || "Failed to fetch appeal information"
+        );
       }
 
       return await response.json();
