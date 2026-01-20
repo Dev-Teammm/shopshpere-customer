@@ -170,6 +170,7 @@ export interface OrderResponse {
   trackingNumber: string | null;
   transaction?: OrderTransactionInfo | null;
   shopOrders?: ShopOrderResponse[];
+  hasReturnRequest?: boolean;
 }
 
 export interface SimpleProduct {
@@ -207,9 +208,17 @@ export interface ReturnRequestInfo {
   returnCode?: string;
   status: string;
   reason: string;
+  requestedAt?: string;
   submittedAt: string;
   decisionAt?: string;
   decisionNotes?: string;
+  refundProcessed?: boolean;
+  refundAmount?: number;
+  refundProcessedAt?: string;
+  refundScreenshotUrl?: string;
+  refundNotes?: string;
+  shopId?: string;
+  shopName?: string;
   canBeAppealed: boolean;
   appeal?: ReturnAppealInfo;
 }
@@ -299,13 +308,24 @@ export interface DeliveryInfo {
 }
 
 export interface ReturnRequest {
-  returnId: number;
+  id: number;
+  returnId?: number; // For backward compatibility
   returnCode: string;
   reason: string;
   status: string;
   requestedAt: string;
+  submittedAt?: string;
   processedAt?: string;
   notes?: string;
+  decisionNotes?: string;
+  refundProcessed?: boolean;
+  refundAmount?: number;
+  refundProcessedAt?: string;
+  refundScreenshotUrl?: string;
+  refundNotes?: string;
+  shopId?: string;
+  shopName?: string;
+  appeal?: ReturnAppealInfo;
 }
 
 export interface ShopOrderGroup {
@@ -393,7 +413,7 @@ export const OrderService = {
    * Create a checkout session for authenticated user
    */
   createCheckoutSession: async (
-    request: CheckoutRequest
+    request: CheckoutRequest,
   ): Promise<{ sessionUrl: string }> => {
     try {
       const token = localStorage.getItem("authToken");
@@ -423,7 +443,7 @@ export const OrderService = {
    * Create a checkout session for guest user
    */
   createGuestCheckoutSession: async (
-    request: GuestCheckoutRequest
+    request: GuestCheckoutRequest,
   ): Promise<{ sessionUrl: string }> => {
     try {
       // Validate cart items before sending to backend
@@ -432,7 +452,7 @@ export const OrderService = {
       request.items.forEach((item, index) => {
         if (!item.productId && !item.variantId) {
           validationErrors.push(
-            `Item ${index + 1}: Must have either productId or variantId`
+            `Item ${index + 1}: Must have either productId or variantId`,
           );
         }
 
@@ -441,19 +461,19 @@ export const OrderService = {
           (typeof item.variantId !== "number" || item.variantId <= 0)
         ) {
           validationErrors.push(
-            `Item ${index + 1}: Invalid variantId - must be a positive number`
+            `Item ${index + 1}: Invalid variantId - must be a positive number`,
           );
         }
 
         if (item.productId && typeof item.productId !== "string") {
           validationErrors.push(
-            `Item ${index + 1}: Invalid productId - must be a string`
+            `Item ${index + 1}: Invalid productId - must be a string`,
           );
         }
 
         if (!item.quantity || item.quantity <= 0) {
           validationErrors.push(
-            `Item ${index + 1}: Quantity must be greater than 0`
+            `Item ${index + 1}: Quantity must be greater than 0`,
           );
         }
       });
@@ -470,13 +490,13 @@ export const OrderService = {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(request),
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Error creating guest checkout session"
+          errorData.message || "Error creating guest checkout session",
         );
       }
 
@@ -492,7 +512,7 @@ export const OrderService = {
    * Verify checkout session
    */
   verifyCheckoutSession: async (
-    sessionId: string
+    sessionId: string,
   ): Promise<CheckoutVerificationResult> => {
     try {
       const response = await fetch(
@@ -502,13 +522,13 @@ export const OrderService = {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Error verifying checkout session"
+          errorData.message || "Error verifying checkout session",
         );
       }
 
@@ -606,7 +626,7 @@ export const OrderService = {
    * Get order details by order number for the authenticated user
    */
   getOrderDetailsByNumber: async (
-    orderNumber: string
+    orderNumber: string,
   ): Promise<OrderDetailsResponse> => {
     try {
       const token = localStorage.getItem("authToken");
@@ -618,7 +638,7 @@ export const OrderService = {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -638,7 +658,7 @@ export const OrderService = {
    * Request secure tracking access via email
    */
   requestTrackingAccess: async (
-    request: OrderTrackingRequest
+    request: OrderTrackingRequest,
   ): Promise<OrderTrackingResponse> => {
     try {
       const response = await fetch(
@@ -649,13 +669,13 @@ export const OrderService = {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(request),
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.message || "Error requesting tracking access"
+          errorData.message || "Error requesting tracking access",
         );
       }
 
@@ -673,19 +693,19 @@ export const OrderService = {
   getOrdersByToken: async (
     token: string,
     page: number = 0,
-    size: number = 10
+    size: number = 10,
   ): Promise<OrderListResponse> => {
     try {
       const response = await fetch(
         `${API_ENDPOINTS.ORDERS}/track/orders?token=${encodeURIComponent(
-          token
+          token,
         )}&page=${page}&size=${size}`,
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -706,7 +726,7 @@ export const OrderService = {
    */
   getOrderByTokenAndId: async (
     token: string,
-    orderId: number
+    orderId: number,
   ): Promise<OrderDetailsResponse> => {
     try {
       const response = await fetch(
@@ -718,7 +738,7 @@ export const OrderService = {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -767,7 +787,7 @@ export const OrderService = {
   getOrderDeliveryNotes: async (
     orderId: number,
     page: number = 0,
-    size: number = 10
+    size: number = 10,
   ): Promise<DeliveryNotesResponse> => {
     try {
       const baseUrl =
@@ -781,7 +801,7 @@ export const OrderService = {
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {

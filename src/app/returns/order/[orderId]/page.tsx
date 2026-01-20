@@ -39,6 +39,7 @@ export default function OrderReturnRequestsPage() {
   const trackingToken = searchParams.get("token");
   const orderNumber = searchParams.get("orderNumber");
   const customerId = searchParams.get("customerId");
+  const isShopOrder = searchParams.get("isShopOrder") === "true";
 
   const [returnRequests, setReturnRequests] = useState<ReturnRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,7 +49,7 @@ export default function OrderReturnRequestsPage() {
 
   useEffect(() => {
     fetchReturnRequests();
-  }, [orderId, trackingToken, orderNumber, customerId]);
+  }, [orderId, trackingToken, orderNumber, customerId, isShopOrder]);
 
   const fetchReturnRequests = async () => {
     setIsLoading(true);
@@ -64,21 +65,43 @@ export default function OrderReturnRequestsPage() {
         }
         requests = await ReturnService.getReturnRequestsByOrderNumberAndToken(
           orderNumber,
-          trackingToken
+          trackingToken,
         );
       } else {
         // Authenticated user
         if (!customerId) {
-          throw new Error("Customer ID is required");
+          // If no customerId in params, try to get from localStorage (though usually passed or context)
+          // For now fail if missing as per existing logic, or rely on service to handle auth
+          if (typeof window !== "undefined") {
+            const storedUser = localStorage.getItem("user");
+            if (storedUser) {
+              const user = JSON.parse(storedUser);
+              if (user && user.id) {
+                // We can proceed if we have user ID
+              } else {
+                throw new Error("Customer ID is required");
+              }
+            } else {
+              throw new Error("Customer ID is required");
+            }
+          }
         }
-        requests = await ReturnService.getReturnRequestsByOrderId(
-          parseInt(orderId),
-          customerId
-        );
+
+        if (isShopOrder) {
+          requests = await ReturnService.getReturnRequestsByShopOrderId(
+            parseInt(orderId),
+            customerId || JSON.parse(localStorage.getItem("user") || "{}").id,
+          );
+        } else {
+          requests = await ReturnService.getReturnRequestsByOrderId(
+            parseInt(orderId),
+            customerId || JSON.parse(localStorage.getItem("user") || "{}").id,
+          );
+        }
       }
 
       setReturnRequests(requests);
-      
+
       if (requests.length === 0) {
         toast.info("No return requests found for this order");
       } else {
@@ -152,7 +175,9 @@ export default function OrderReturnRequestsPage() {
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-3 text-muted-foreground">Loading return requests...</span>
+            <span className="ml-3 text-muted-foreground">
+              Loading return requests...
+            </span>
           </div>
         </div>
       </div>
@@ -200,14 +225,18 @@ export default function OrderReturnRequestsPage() {
             <CardContent className="py-12">
               <div className="text-center">
                 <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Return Requests</h3>
+                <h3 className="text-lg font-semibold mb-2">
+                  No Return Requests
+                </h3>
                 <p className="text-muted-foreground mb-4">
                   You haven't submitted any return requests for this order yet.
                 </p>
                 <Button
                   onClick={() => {
                     if (isGuestMode) {
-                      router.push(`/returns/request?orderId=${orderId}&token=${trackingToken}`);
+                      router.push(
+                        `/returns/request?orderNumber=${orderNumber}&token=${trackingToken}`,
+                      );
                     } else {
                       router.push(`/returns/request?orderId=${orderId}`);
                     }
@@ -228,7 +257,9 @@ export default function OrderReturnRequestsPage() {
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         Return Request #{index + 1}
-                        <Badge className={`${getStatusColor(request.status)} border`}>
+                        <Badge
+                          className={`${getStatusColor(request.status)} border`}
+                        >
                           <span className="flex items-center gap-1">
                             {getStatusIcon(request.status)}
                             {request.status}
@@ -270,7 +301,9 @@ export default function OrderReturnRequestsPage() {
                           <div>
                             <p className="font-medium">{item.productName}</p>
                             {item.variantName && (
-                              <p className="text-sm text-muted-foreground">{item.variantName}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {item.variantName}
+                              </p>
                             )}
                             {item.itemReason && (
                               <p className="text-xs text-muted-foreground mt-1">
@@ -278,7 +311,9 @@ export default function OrderReturnRequestsPage() {
                               </p>
                             )}
                           </div>
-                          <Badge variant="outline">Qty: {item.returnQuantity}</Badge>
+                          <Badge variant="outline">
+                            Qty: {item.returnQuantity}
+                          </Badge>
                         </div>
                       ))}
                     </div>
@@ -301,18 +336,21 @@ export default function OrderReturnRequestsPage() {
                               {request.expectedRefund.paymentMethod}
                             </Badge>
                           </div>
-                          
+
                           {request.expectedRefund.monetaryRefund > 0 && (
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium text-muted-foreground">
                                 Card Refund
                               </span>
                               <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                                ${(request.expectedRefund.monetaryRefund || 0).toFixed(2)}
+                                $
+                                {(
+                                  request.expectedRefund.monetaryRefund || 0
+                                ).toFixed(2)}
                               </span>
                             </div>
                           )}
-                          
+
                           {request.expectedRefund.pointsRefund > 0 && (
                             <>
                               <div className="flex items-center justify-between">
@@ -328,21 +366,30 @@ export default function OrderReturnRequestsPage() {
                                   Points Value
                                 </span>
                                 <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                                  ${(request.expectedRefund.pointsRefundValue || 0).toFixed(2)}
+                                  $
+                                  {(
+                                    request.expectedRefund.pointsRefundValue ||
+                                    0
+                                  ).toFixed(2)}
                                 </span>
                               </div>
                             </>
                           )}
-                          
+
                           <Separator />
-                          
+
                           <div className="flex items-center justify-between">
-                            <span className="font-semibold">Total Refund Value</span>
+                            <span className="font-semibold">
+                              Total Refund Value
+                            </span>
                             <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                              ${(request.expectedRefund.totalRefundValue || 0).toFixed(2)}
+                              $
+                              {(
+                                request.expectedRefund.totalRefundValue || 0
+                              ).toFixed(2)}
                             </span>
                           </div>
-                          
+
                           <p className="text-xs text-muted-foreground italic pt-2 border-t">
                             {request.expectedRefund.refundDescription}
                           </p>
@@ -396,11 +443,13 @@ export default function OrderReturnRequestsPage() {
                       </h4>
                       <div className="bg-muted p-4 rounded-md space-y-2">
                         <p className="text-sm">
-                          <span className="font-medium">Date:</span> {formatDate(request.decisionAt)}
+                          <span className="font-medium">Date:</span>{" "}
+                          {formatDate(request.decisionAt)}
                         </p>
                         {request.decisionNotes && (
                           <p className="text-sm">
-                            <span className="font-medium">Notes:</span> {request.decisionNotes}
+                            <span className="font-medium">Notes:</span>{" "}
+                            {request.decisionNotes}
                           </p>
                         )}
                       </div>
@@ -419,7 +468,11 @@ export default function OrderReturnRequestsPage() {
                         <CardContent className="pt-4 space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Status</span>
-                            <Badge className={getStatusColor(request.returnAppeal.status)}>
+                            <Badge
+                              className={getStatusColor(
+                                request.returnAppeal.status,
+                              )}
+                            >
                               {request.returnAppeal.status}
                             </Badge>
                           </div>
@@ -446,14 +499,18 @@ export default function OrderReturnRequestsPage() {
                           {request.returnAppeal.decisionAt && (
                             <>
                               <div>
-                                <p className="text-sm font-medium">Decision Date</p>
+                                <p className="text-sm font-medium">
+                                  Decision Date
+                                </p>
                                 <p className="text-sm text-muted-foreground mt-1">
                                   {formatDate(request.returnAppeal.decisionAt)}
                                 </p>
                               </div>
                               {request.returnAppeal.decisionNotes && (
                                 <div>
-                                  <p className="text-sm font-medium">Decision Notes</p>
+                                  <p className="text-sm font-medium">
+                                    Decision Notes
+                                  </p>
                                   <p className="text-sm text-muted-foreground mt-1">
                                     {request.returnAppeal.decisionNotes}
                                   </p>
@@ -466,28 +523,39 @@ export default function OrderReturnRequestsPage() {
                     </div>
                   )}
 
-                  {request.canBeAppealed && request.status === "DENIED" && !request.returnAppeal && (
-                    <div>
-                      <Separator className="mb-4" />
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Your return request was denied. You can submit an appeal if you believe this
-                          decision was made in error.
-                        </AlertDescription>
-                      </Alert>
-                      <Button
-                        onClick={() => {
-                          router.push(`/returns/appeal?returnRequestId=${request.id}`);
-                        }}
-                        className="w-full mt-4"
-                        variant="outline"
-                      >
-                        <AlertCircle className="h-4 w-4 mr-2" />
-                        Submit Appeal
-                      </Button>
-                    </div>
-                  )}
+                  {request.canBeAppealed &&
+                    request.status === "DENIED" &&
+                    !request.returnAppeal && (
+                      <div>
+                        <Separator className="mb-4" />
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            Your return request was denied. You can submit an
+                            appeal if you believe this decision was made in
+                            error.
+                          </AlertDescription>
+                        </Alert>
+                        <Button
+                          onClick={() => {
+                            if (isGuestMode) {
+                              router.push(
+                                `/returns/appeal?returnRequestId=${request.id}&token=${trackingToken}`,
+                              );
+                            } else {
+                              router.push(
+                                `/returns/appeal?returnRequestId=${request.id}`,
+                              );
+                            }
+                          }}
+                          className="w-full mt-4"
+                          variant="outline"
+                        >
+                          <AlertCircle className="h-4 w-4 mr-2" />
+                          Submit Appeal
+                        </Button>
+                      </div>
+                    )}
                 </CardContent>
               </Card>
             ))}

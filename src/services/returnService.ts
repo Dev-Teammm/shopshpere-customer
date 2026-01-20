@@ -1,23 +1,33 @@
-import { API_BASE_URL as url } from '@/lib/api';
-import { OrderDetails, SubmitReturnRequest, SubmitGuestReturnRequest, ReturnRequestResponse } from '@/types/return';
+import { API_BASE_URL as url } from "@/lib/api";
+import {
+  OrderDetails,
+  SubmitReturnRequest,
+  SubmitGuestReturnRequest,
+  ReturnRequestResponse,
+} from "@/types/return";
 
-const API_BASE_URL = url
+const API_BASE_URL = url;
 
 export class ReturnService {
   /**
    * Get order details by pickup token (for guest users)
    */
-  static async getOrderByPickupToken(pickupToken: string): Promise<OrderDetails> {
-    const response = await fetch(`${API_BASE_URL}/orders/track/token/${pickupToken}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+  static async getOrderByPickupToken(
+    pickupToken: string
+  ): Promise<OrderDetails> {
+    const response = await fetch(
+      `${API_BASE_URL}/orders/track/token/${pickupToken}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to fetch order details');
+      throw new Error(errorData.message || "Failed to fetch order details");
     }
 
     const data = await response.json();
@@ -27,17 +37,22 @@ export class ReturnService {
   /**
    * Get order details by order number (public endpoint)
    */
-  static async getOrderByOrderNumber(orderNumber: string): Promise<OrderDetails> {
-    const response = await fetch(`${API_BASE_URL}/orders/track/${orderNumber}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+  static async getOrderByOrderNumber(
+    orderNumber: string
+  ): Promise<OrderDetails> {
+    const response = await fetch(
+      `${API_BASE_URL}/orders/track/${orderNumber}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to fetch order details');
+      throw new Error(errorData.message || "Failed to fetch order details");
     }
 
     const data = await response.json();
@@ -47,17 +62,27 @@ export class ReturnService {
   /**
    * Get order details by tracking token (secure endpoint)
    */
-  static async getOrderByTrackingToken(trackingToken: string, orderNumber: string): Promise<OrderDetails> {
-    const response = await fetch(`${API_BASE_URL}/orders/track/secure/${orderNumber}?token=${encodeURIComponent(trackingToken)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+  static async getOrderByTrackingToken(
+    trackingToken: string,
+    orderNumber: string
+  ): Promise<OrderDetails> {
+    const response = await fetch(
+      `${API_BASE_URL}/orders/track/secure/${orderNumber}?token=${encodeURIComponent(
+        trackingToken
+      )}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to fetch order details or invalid token');
+      throw new Error(
+        errorData.message || "Failed to fetch order details or invalid token"
+      );
     }
 
     const data = await response.json();
@@ -67,19 +92,21 @@ export class ReturnService {
   /**
    * Get order details by order ID for authenticated users
    */
-  static async getOrderByIdForAuthenticated(orderId: string): Promise<OrderDetails> {
-    const token = localStorage.getItem('authToken');
+  static async getOrderByIdForAuthenticated(
+    orderId: string
+  ): Promise<OrderDetails> {
+    const token = localStorage.getItem("authToken");
     const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to fetch order details');
+      throw new Error(errorData.message || "Failed to fetch order details");
     }
 
     const result = await response.json();
@@ -94,32 +121,33 @@ export class ReturnService {
     mediaFiles?: File[]
   ): Promise<ReturnRequestResponse> {
     const formData = new FormData();
-    
+
     // Add return request data as JSON blob with correct content type
     const returnRequestBlob = new Blob([JSON.stringify(returnRequest)], {
-      type: 'application/json'
+      type: "application/json",
     });
-    formData.append('returnRequest', returnRequestBlob);
-    
+    formData.append("returnRequest", returnRequestBlob, "returnRequest.json");
+
     // Add media files if provided
     if (mediaFiles && mediaFiles.length > 0) {
-      mediaFiles.forEach((file, index) => {
-        formData.append('mediaFiles', file);
+      mediaFiles.forEach((file) => {
+        formData.append("mediaFiles", file);
       });
     }
 
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
     const response = await fetch(`${API_BASE_URL}/returns/submit`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${token}`,
-      }, 
+        Authorization: `Bearer ${token}`,
+        "X-Order-Token": returnRequest.trackingToken || "",
+      },
       body: formData,
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to submit return request');
+      throw new Error(errorData.message || "Failed to submit return request");
     }
 
     return await response.json();
@@ -133,28 +161,28 @@ export class ReturnService {
     mediaFiles?: File[]
   ): Promise<ReturnRequestResponse> {
     const formData = new FormData();
-    
+
     // Add return request data as JSON blob with correct content type
     const returnRequestBlob = new Blob([JSON.stringify(returnRequest)], {
-      type: 'application/json'
+      type: "application/json",
     });
-    formData.append('returnRequest', returnRequestBlob);
-    
+    formData.append("returnRequest", returnRequestBlob);
+
     // Add media files if provided
     if (mediaFiles && mediaFiles.length > 0) {
       mediaFiles.forEach((file, index) => {
-        formData.append('mediaFiles', file);
+        formData.append("mediaFiles", file);
       });
     }
 
     const response = await fetch(`${API_BASE_URL}/returns/submit/guest`, {
-      method: 'POST',
+      method: "POST",
       body: formData,
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to submit return request');
+      throw new Error(errorData.message || "Failed to submit return request");
     }
 
     return await response.json();
@@ -164,62 +192,131 @@ export class ReturnService {
    * Submit return request using tracking token (secure endpoint)
    */
   static async submitTokenizedReturnRequest(
-    returnRequest: { orderNumber: string; trackingToken: string; reason: string; returnItems: any[] },
+    returnRequest: {
+      orderNumber: string;
+      trackingToken: string;
+      reason: string;
+      returnItems: any[];
+    },
     mediaFiles?: File[]
   ): Promise<ReturnRequestResponse> {
     const formData = new FormData();
-    
+
     // Add return request data as JSON blob with correct content type
     const returnRequestBlob = new Blob([JSON.stringify(returnRequest)], {
-      type: 'application/json'
+      type: "application/json",
     });
-    formData.append('returnRequest', returnRequestBlob);
-    
+    formData.append("returnRequest", returnRequestBlob, "returnRequest.json");
+
     // Add media files if provided
     if (mediaFiles && mediaFiles.length > 0) {
-      mediaFiles.forEach((file, index) => {
-        formData.append('mediaFiles', file);
+      mediaFiles.forEach((file) => {
+        formData.append("mediaFiles", file);
       });
     }
 
     const response = await fetch(`${API_BASE_URL}/returns/submit/tokenized`, {
-      method: 'POST',
+      method: "POST",
+      headers: {
+        "X-Order-Token": returnRequest.trackingToken,
+      },
       body: formData,
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to submit return request');
+      throw new Error(errorData.message || "Failed to submit return request");
     }
 
     return await response.json();
   }
 
   /**
-   * Get customer's return requests (authenticated users only)
+   * Initialize a return request for an authenticated user (shop-scoped)
    */
-  static async getCustomerReturnRequests(customerId: string, page = 0, size = 10): Promise<{
-    content: ReturnRequestResponse[];
-    totalElements: number;
-    totalPages: number;
-    number: number;
-    size: number;
-  }> {
-    const token = localStorage.getItem('authToken');
+  static async initShopOrderReturn(shopOrderId: string): Promise<OrderDetails> {
+    const token = localStorage.getItem("authToken");
     const response = await fetch(
-      `${API_BASE_URL}/returns/my-returns?customerId=${customerId}&page=${page}&size=${size}`,
+      `${API_BASE_URL}/returns/init/${shopOrderId}`,
       {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       }
     );
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to fetch return requests');
+      throw new Error(
+        errorData.message || "Failed to initialize return request"
+      );
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Initialize a return request for a guest user (shop-scoped)
+   */
+  static async initGuestShopOrderReturn(
+    orderNumber: string,
+    token: string
+  ): Promise<OrderDetails> {
+    const response = await fetch(
+      `${API_BASE_URL}/returns/init/guest?orderNumber=${orderNumber}&token=${encodeURIComponent(
+        token
+      )}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.message || "Failed to initialize guest return request"
+      );
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  /**
+   * Get customer's return requests (authenticated users only)
+   */
+  static async getCustomerReturnRequests(
+    customerId: string,
+    page = 0,
+    size = 10
+  ): Promise<{
+    content: ReturnRequestResponse[];
+    totalElements: number;
+    totalPages: number;
+    number: number;
+    size: number;
+  }> {
+    const token = localStorage.getItem("authToken");
+    const response = await fetch(
+      `${API_BASE_URL}/returns/my-returns?customerId=${customerId}&page=${page}&size=${size}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to fetch return requests");
     }
 
     return await response.json();
@@ -228,19 +325,23 @@ export class ReturnService {
   /**
    * Get return request details by ID
    */
-  static async getReturnRequestDetails(returnRequestId: string): Promise<ReturnRequestResponse> {
-    const token = localStorage.getItem('authToken');
+  static async getReturnRequestDetails(
+    returnRequestId: string
+  ): Promise<ReturnRequestResponse> {
+    const token = localStorage.getItem("authToken");
     const response = await fetch(`${API_BASE_URL}/returns/${returnRequestId}`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to fetch return request details');
+      throw new Error(
+        errorData.message || "Failed to fetch return request details"
+      );
     }
 
     return await response.json();
@@ -249,14 +350,22 @@ export class ReturnService {
   /**
    * Validate media files before upload
    */
-  static validateMediaFiles(files: File[]): { isValid: boolean; errors: string[] } {
+  static validateMediaFiles(files: File[]): {
+    isValid: boolean;
+    errors: string[];
+  } {
     const errors: string[] = [];
     const maxImages = 5;
     const maxVideos = 1;
     const maxVideoSize = 50 * 1024 * 1024; // 50MB
     const maxImageSize = 10 * 1024 * 1024; // 10MB
-    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/mov'];
+    const allowedImageTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+    ];
+    const allowedVideoTypes = ["video/mp4", "video/webm", "video/mov"];
 
     let imageCount = 0;
     let videoCount = 0;

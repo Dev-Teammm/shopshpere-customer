@@ -248,9 +248,19 @@ export default function AccountOrdersPage() {
                           {format(new Date(order.createdAt), "MMM dd, yyyy")}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={getStatusBadgeVariant(order.status)}>
-                            {order.status}
-                          </Badge>
+                          <div className="flex flex-col gap-1.5 items-start">
+                            <Badge variant={getStatusBadgeVariant(order.status)}>
+                              {order.status}
+                            </Badge>
+                            {order.hasReturnRequest && (
+                              <Badge
+                                variant="outline"
+                                className="text-orange-600 border-orange-200 bg-orange-50 text-[10px] whitespace-nowrap"
+                              >
+                                Return Requested
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="font-medium">
                           {formatCurrency(order.total)}

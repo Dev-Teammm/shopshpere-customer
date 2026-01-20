@@ -40,6 +40,7 @@ export default function ReturnRequestPage() {
   // URL parameters
   const orderNumber = searchParams.get("orderNumber");
   const orderId = searchParams.get("orderId");
+  const shopOrderId = searchParams.get("shopOrderId");
   const pickupToken = searchParams.get("pickupToken");
   const trackingToken = searchParams.get("token");
 
@@ -67,7 +68,7 @@ export default function ReturnRequestPage() {
   >({});
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<Record<string, string>>(
-    {}
+    {},
   );
   const [generalReason, setGeneralReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +83,7 @@ export default function ReturnRequestPage() {
   }, [
     orderNumber,
     orderId,
+    shopOrderId,
     pickupToken,
     trackingToken,
     authChecked,
@@ -89,7 +91,13 @@ export default function ReturnRequestPage() {
   ]);
 
   const loadOrderDetails = async () => {
-    if (!orderNumber && !orderId && !pickupToken && !trackingToken) {
+    if (
+      !orderNumber &&
+      !orderId &&
+      !shopOrderId &&
+      !pickupToken &&
+      !trackingToken
+    ) {
       setError("Order information is required");
       setLoading(false);
       return;
@@ -99,14 +107,26 @@ export default function ReturnRequestPage() {
       setLoading(true);
       let order: OrderDetails;
 
-      if (isAuthenticated && orderId) {
-        // Authenticated user with order ID
-        order = await ReturnService.getOrderByIdForAuthenticated(orderId);
+      if (isAuthenticated && (shopOrderId || orderId)) {
+        // Preference: shopOrderId (shop-scoped)
+        if (shopOrderId) {
+          order = await ReturnService.initShopOrderReturn(shopOrderId);
+        } else {
+          // Fallback: orderId (legacy/global)
+          order = await ReturnService.getOrderByIdForAuthenticated(orderId!);
+        }
+      } else if (orderNumber && (trackingToken || pickupToken)) {
+        // Preference: orderNumber + token (shop-scoped)
+        const token = trackingToken || pickupToken;
+        order = await ReturnService.initGuestShopOrderReturn(
+          orderNumber,
+          token!,
+        );
       } else if (trackingToken && orderNumber) {
         // Use tokenized order lookup for secure access
         order = await ReturnService.getOrderByTrackingToken(
           trackingToken,
-          orderNumber
+          orderNumber,
         );
       } else if (pickupToken) {
         order = await ReturnService.getOrderByPickupToken(pickupToken);
@@ -265,10 +285,15 @@ export default function ReturnRequestPage() {
 
     // Validate that all selected items have reasons
     const itemsWithoutReason = Object.values(selectedItems).filter(
-      (item) => !item.itemReason.trim()
+      (item) => !item.itemReason.trim(),
     );
     if (itemsWithoutReason.length > 0) {
       toast.error("Please provide a reason for each selected item");
+      return;
+    }
+
+    if (!generalReason.trim()) {
+      toast.error("Please provide an overall reason for the return request");
       return;
     }
 
@@ -280,23 +305,24 @@ export default function ReturnRequestPage() {
           orderItemId: item.orderItemId.toString(),
           returnQuantity: item.returnQuantity,
           itemReason: item.itemReason,
-        })
+        }),
       );
 
       let response;
-      if (isAuthenticated && orderDetails?.userId && orderDetails?.id) {
-        // Authenticated user return request
+      if (isAuthenticated && orderDetails?.id) {
+        // Authenticated user return request (Preffered if logged in)
         response = await ReturnService.submitReturnRequest(
           {
-            customerId: orderDetails.userId,
+            customerId: orderDetails.userId || null, // Backend handles null if authenticated
             orderId: orderDetails.id.toString(),
             reason: generalReason,
             returnItems,
+            trackingToken: trackingToken || undefined,
           },
-          mediaFiles
+          mediaFiles,
         );
       } else if (trackingToken && orderNumber) {
-        // Use tokenized return request submission
+        // Tokenized return request (Guest/Secure access)
         response = await ReturnService.submitTokenizedReturnRequest(
           {
             orderNumber,
@@ -304,9 +330,10 @@ export default function ReturnRequestPage() {
             reason: generalReason,
             returnItems,
           },
-          mediaFiles
+          mediaFiles,
         );
       } else if (isGuest && pickupToken && orderNumber) {
+        // Legacy/Direct guest return request
         response = await ReturnService.submitGuestReturnRequest(
           {
             orderNumber,
@@ -314,14 +341,17 @@ export default function ReturnRequestPage() {
             reason: generalReason,
             returnItems,
           },
-          mediaFiles
+          mediaFiles,
         );
       } else {
-        throw new Error("Missing required information for return request");
+        throw new Error(
+          "Missing required information for return request. Please try refreshing the page.",
+        );
       }
 
       toast.success("Return request submitted successfully!");
-      router.push(`/returns/success?requestId=${response.id}`);
+      const tokenParam = trackingToken ? `&token=${trackingToken}` : "";
+      router.push(`/returns/success?requestId=${response.id}${tokenParam}`);
     } catch (err: any) {
       toast.error(err.message || "Failed to submit return request");
     } finally {
@@ -426,6 +456,10 @@ export default function ReturnRequestPage() {
             <div>
               <Label className="text-sm text-gray-500">Order Number</Label>
               <p className="font-semibold">{orderDetails.orderNumber}</p>
+            </div>
+            <div>
+              <Label className="text-sm text-gray-500">Shop</Label>
+              <p className="font-semibold">{orderDetails.shopName || "-"}</p>
             </div>
             <div>
               <Label className="text-sm text-gray-500">Status</Label>
@@ -546,7 +580,7 @@ export default function ReturnRequestPage() {
                                 onClick={() =>
                                   handleQuantityChange(
                                     itemId,
-                                    isSelected.returnQuantity - 1
+                                    isSelected.returnQuantity - 1,
                                   )
                                 }
                                 disabled={isSelected.returnQuantity <= 1}
@@ -562,7 +596,7 @@ export default function ReturnRequestPage() {
                                 onChange={(e) =>
                                   handleQuantityChange(
                                     itemId,
-                                    parseInt(e.target.value) || 1
+                                    parseInt(e.target.value) || 1,
                                   )
                                 }
                                 className="w-20 text-center"
@@ -574,7 +608,7 @@ export default function ReturnRequestPage() {
                                 onClick={() =>
                                   handleQuantityChange(
                                     itemId,
-                                    isSelected.returnQuantity + 1
+                                    isSelected.returnQuantity + 1,
                                   )
                                 }
                                 disabled={
@@ -752,7 +786,7 @@ export default function ReturnRequestPage() {
         </CardHeader>
         <CardContent>
           <div>
-            <Label htmlFor="general-reason">General Reason (Optional)</Label>
+            <Label htmlFor="general-reason">General Reason *</Label>
             <Textarea
               id="general-reason"
               placeholder="Any additional information about your return request..."

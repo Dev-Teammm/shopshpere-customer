@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Circle,
   HelpCircle,
+  Download,
 } from "lucide-react";
 import {
   ShopOrderGroup as ShopOrderGroupType,
@@ -20,6 +21,7 @@ import {
   StatusTimeline,
 } from "@/lib/orderService";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 
@@ -282,8 +284,8 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                                       ret.status === "APPROVED"
                                         ? "bg-green-100 text-green-700 border-green-200"
                                         : ret.status === "DENIED"
-                                        ? "bg-red-100 text-red-700 border-red-200"
-                                        : "bg-amber-100 text-amber-700 border-amber-200"
+                                          ? "bg-red-100 text-red-700 border-red-200"
+                                          : "bg-amber-100 text-amber-700 border-amber-200"
                                     }
                                   >
                                     {ret.status}
@@ -292,7 +294,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                                     Submitted{" "}
                                     {format(
                                       new Date(ret.submittedAt),
-                                      "MMM dd, yyyy"
+                                      "MMM dd, yyyy",
                                     )}
                                   </span>
                                 </div>
@@ -315,6 +317,60 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                                   <p className="text-xs italic text-slate-600">
                                     "{ret.decisionNotes}"
                                   </p>
+                                </div>
+                              )}
+
+                              {/* REFUND INFO */}
+                              {ret.refundProcessed && (
+                                <div className="bg-green-50 border border-green-100 rounded-md p-3 mt-2">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                    <span className="text-xs font-bold text-green-900 uppercase tracking-wider">
+                                      Refund Processed
+                                    </span>
+                                    {ret.refundProcessedAt && (
+                                      <span className="ml-auto text-[10px] text-green-600 font-medium">
+                                        {format(
+                                          new Date(ret.refundProcessedAt),
+                                          "MMM dd, yyyy",
+                                        )}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="space-y-2">
+                                    <p className="text-sm font-bold text-slate-900">
+                                      Amount:{" "}
+                                      {formatCurrency(ret.refundAmount || 0)}
+                                    </p>
+                                    {ret.refundScreenshotUrl && (
+                                      <div className="pt-1">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-8 text-xs bg-white text-green-700 border-green-200 hover:bg-green-50 w-full flex items-center justify-center gap-2"
+                                          onClick={() => {
+                                            const link =
+                                              document.createElement("a");
+                                            link.href =
+                                              ret.refundScreenshotUrl!;
+                                            link.target = "_blank";
+                                            link.download = `refund-receipt-${ret.id}.jpg`;
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                          }}
+                                        >
+                                          <Download className="h-3 w-3" />
+                                          Download Refund Proof
+                                        </Button>
+                                      </div>
+                                    )}
+                                    {ret.refundNotes && (
+                                      <p className="text-[10px] text-green-700 italic border-t border-green-100 pt-2 mt-2">
+                                        Note: {ret.refundNotes}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               )}
 
@@ -413,7 +469,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                           <span className="text-sm font-bold text-slate-800">
                             {format(
                               new Date(shopOrder.deliveryInfo.scheduledAt),
-                              "MMMM dd, yyyy"
+                              "MMMM dd, yyyy",
                             )}
                           </span>
                         </div>
@@ -464,7 +520,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                       Left on{" "}
                       {format(
                         new Date(shopOrder.deliveryNote.createdAt),
-                        "MMM dd, yyyy"
+                        "MMM dd, yyyy",
                       )}
                     </p>
                   </div>
@@ -527,8 +583,8 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                       {formatCurrency(
                         Math.max(
                           0,
-                          shopOrder.total - (shopOrder.pointsValue || 0)
-                        )
+                          shopOrder.total - (shopOrder.pointsValue || 0),
+                        ),
                       )}
                     </span>
                   </div>
@@ -546,7 +602,11 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                 <button
                   onClick={() => {
                     const orderId = shopOrder.shopOrderId.toString();
-                    window.location.href = `/returns/order/${orderId}`;
+                    let url = `/returns/order/${orderId}?isShopOrder=true`;
+                    if (shopOrder.trackingToken && shopOrder.shopOrderCode) {
+                      url += `&token=${shopOrder.trackingToken}&orderNumber=${shopOrder.shopOrderCode}`;
+                    }
+                    window.location.href = url;
                   }}
                   className="w-full bg-white border border-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl shadow-sm hover:shadow-md hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
                 >
@@ -556,7 +616,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
 
                 <button
                   onClick={() => {
-                    window.location.href = `/returns/request?orderId=${shopOrder.shopOrderId}`;
+                    window.location.href = `/returns/request?shopOrderId=${shopOrder.shopOrderId}&orderNumber=${shopOrder.shopOrderCode}&token=${shopOrder.trackingToken}`;
                   }}
                   className="w-full bg-blue-600 border border-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
                 >

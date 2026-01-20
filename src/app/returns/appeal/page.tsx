@@ -36,7 +36,9 @@ interface AppealFormData {
 export default function AppealPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [returnRequest, setReturnRequest] = useState<ReturnRequest | null>(null);
+  const [returnRequest, setReturnRequest] = useState<ReturnRequest | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,13 +50,13 @@ export default function AppealPage() {
 
   const returnId = searchParams.get("returnRequestId");
   const trackingToken = searchParams.get("token");
-  
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isGuest, setIsGuest] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('authToken');
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("authToken");
       setIsAuthenticated(!!token);
       setIsGuest(!token);
       setAuthChecked(true);
@@ -72,12 +74,20 @@ export default function AppealPage() {
       try {
         setLoading(true);
         setError(null);
-        const returnData = await ReturnService.getReturnById(Number(returnId));
+
+        // Pass the tracking token to the service if available
+        const returnData = await ReturnService.getReturnById(
+          Number(returnId),
+          trackingToken || undefined,
+        );
+
         setReturnRequest(returnData);
         if (returnData.status !== "DENIED") {
           setError("Appeals can only be submitted for denied return requests");
         } else if (returnData.returnAppeal) {
-          setError("An appeal has already been submitted for this return request");
+          setError(
+            "An appeal has already been submitted for this return request",
+          );
         }
       } catch (err: any) {
         console.error("Error fetching return info:", err);
@@ -101,7 +111,9 @@ export default function AppealPage() {
 
     // Check total file limit
     if (formData.mediaFiles.length + files.length > 5) {
-      toast.error(`You can only upload up to 5 files. Currently you have ${formData.mediaFiles.length} file(s).`);
+      toast.error(
+        `You can only upload up to 5 files. Currently you have ${formData.mediaFiles.length} file(s).`,
+      );
       return;
     }
 
@@ -112,26 +124,33 @@ export default function AppealPage() {
     for (const file of files) {
       try {
         // Check file type
-        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        if (
+          !file.type.startsWith("image/") &&
+          !file.type.startsWith("video/")
+        ) {
           errors.push(`"${file.name}" is not a valid image or video file`);
           continue;
         }
 
         // Check file size
-        const maxSize = file.type.startsWith('image/') ? 10 * 1024 * 1024 : 50 * 1024 * 1024; // 10MB for images, 50MB for videos
+        const maxSize = file.type.startsWith("image/")
+          ? 10 * 1024 * 1024
+          : 50 * 1024 * 1024; // 10MB for images, 50MB for videos
         if (file.size > maxSize) {
           const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-          const maxSizeMB = file.type.startsWith('image/') ? '10MB' : '50MB';
-          errors.push(`"${file.name}" is too large (${sizeMB}MB). Maximum size is ${maxSizeMB}`);
+          const maxSizeMB = file.type.startsWith("image/") ? "10MB" : "50MB";
+          errors.push(
+            `"${file.name}" is too large (${sizeMB}MB). Maximum size is ${maxSizeMB}`,
+          );
           continue;
         }
 
         // Validate video duration
-        if (file.type.startsWith('video/')) {
+        if (file.type.startsWith("video/")) {
           const duration = await getVideoDuration(file);
           if (duration > 15) {
             errors.push(
-              `"${file.name}" is too long (${duration.toFixed(1)}s). Maximum duration is 15 seconds`
+              `"${file.name}" is too long (${duration.toFixed(1)}s). Maximum duration is 15 seconds`,
             );
             continue;
           }
@@ -147,18 +166,19 @@ export default function AppealPage() {
 
     // Add valid files
     if (validFiles.length > 0) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        mediaFiles: [...prev.mediaFiles, ...validFiles]
+        mediaFiles: [...prev.mediaFiles, ...validFiles],
       }));
       toast.success(`${validFiles.length} file(s) added successfully`);
     }
 
     // Show errors if any
     if (errors.length > 0) {
-      const errorMessage = errors.length === 1 
-        ? errors[0]
-        : `${errors.length} files could not be added:\n${errors.join('\n')}`;
+      const errorMessage =
+        errors.length === 1
+          ? errors[0]
+          : `${errors.length} files could not be added:\n${errors.join("\n")}`;
       toast.error(errorMessage, { duration: 8000 });
     }
   };
@@ -183,22 +203,22 @@ export default function AppealPage() {
   };
 
   const removeFile = (index: number) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const fileToRemove = prev.mediaFiles[index];
       if (fileToRemove) {
         URL.revokeObjectURL(URL.createObjectURL(fileToRemove));
       }
-      
+
       return {
         ...prev,
-        mediaFiles: prev.mediaFiles.filter((_, i) => i !== index)
+        mediaFiles: prev.mediaFiles.filter((_, i) => i !== index),
       };
     });
   };
 
   useEffect(() => {
     return () => {
-      formData.mediaFiles.forEach(file => {
+      formData.mediaFiles.forEach((file) => {
         URL.revokeObjectURL(URL.createObjectURL(file));
       });
     };
@@ -206,14 +226,16 @@ export default function AppealPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.reason.trim()) {
       toast.error("Please provide a reason for your appeal");
       return;
     }
 
     if (formData.mediaFiles.length === 0) {
-      toast.error("At least one image or video is required for appeal submission");
+      toast.error(
+        "At least one image or video is required for appeal submission",
+      );
       return;
     }
 
@@ -225,7 +247,7 @@ export default function AppealPage() {
       appealFormData.append("returnRequestId", returnId!);
       appealFormData.append("reason", formData.reason);
       appealFormData.append("description", formData.description);
-      
+
       formData.mediaFiles.forEach((file, index) => {
         appealFormData.append("mediaFiles", file);
       });
@@ -240,29 +262,37 @@ export default function AppealPage() {
         appealFormData.append("trackingToken", trackingToken);
         response = await ReturnService.submitTokenizedAppeal(appealFormData);
       } else {
-        throw new Error("Missing authentication information for appeal submission");
+        throw new Error(
+          "Missing authentication information for appeal submission",
+        );
       }
-      
+
       toast.success("Appeal submitted successfully!");
-      
+
       // Navigate back with appropriate parameters
-      if (isAuthenticated) {
-        router.push(`/returns/info?returnId=${returnId}`);
-      } else {
-        router.push(`/returns/info?returnId=${returnId}&token=${trackingToken}`);
-      }
+      const baseUrl = `/returns/info?returnId=${returnId}`;
+      const tokenParam = trackingToken ? `&token=${trackingToken}` : "";
+      const orderParam = returnRequest?.orderNumber
+        ? `&orderNumber=${returnRequest.orderNumber}`
+        : "";
+
+      router.push(`${baseUrl}${tokenParam}${orderParam}`);
     } catch (err: any) {
       console.error("Error submitting appeal:", err);
-      
+
       // Enhanced error handling
       if (err.message?.includes("Appeal already exists")) {
-        toast.error("An appeal has already been submitted for this return request");
+        toast.error(
+          "An appeal has already been submitted for this return request",
+        );
       } else if (err.message?.includes("Appeal period has expired")) {
         toast.error("The appeal period for this return has expired");
       } else if (err.message?.includes("Only denied return requests")) {
         toast.error("Appeals can only be submitted for denied return requests");
       } else if (err.message?.includes("Invalid or expired tracking token")) {
-        toast.error("Your access token has expired. Please request a new tracking link.");
+        toast.error(
+          "Your access token has expired. Please request a new tracking link.",
+        );
       } else {
         toast.error(err.message || "Failed to submit appeal");
       }
@@ -279,7 +309,9 @@ export default function AppealPage() {
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
               <p className="text-muted-foreground">
-                {!authChecked ? 'Initializing...' : 'Loading return information...'}
+                {!authChecked
+                  ? "Initializing..."
+                  : "Loading return information..."}
               </p>
             </div>
           </div>
@@ -287,7 +319,6 @@ export default function AppealPage() {
       </div>
     );
   }
-
 
   if (error) {
     return (
@@ -313,12 +344,16 @@ export default function AppealPage() {
       <div className="max-w-2xl mx-auto">
         {/* Breadcrumb Navigation */}
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground mb-6">
-          <Link href="/" className="hover:text-foreground">Home</Link>
+          <Link href="/" className="hover:text-foreground">
+            Home
+          </Link>
           <span>/</span>
-          <Link href="/track-order" className="hover:text-foreground">Track Order</Link>
+          <Link href="/track-order" className="hover:text-foreground">
+            Track Order
+          </Link>
           <span>/</span>
-          <Link 
-            href={`/returns/info?returnId=${returnId}${trackingToken ? `&token=${trackingToken}` : ''}`} 
+          <Link
+            href={`/returns/info?returnId=${returnId}${trackingToken ? `&token=${trackingToken}` : ""}`}
             className="hover:text-foreground"
           >
             Return Information
@@ -337,15 +372,18 @@ export default function AppealPage() {
             <h1 className="text-3xl font-bold">Submit Appeal</h1>
             <div className="flex items-center gap-3 mt-1">
               <p className="text-muted-foreground">
-                Return Request #{returnRequest?.id} • Order #{returnRequest?.orderNumber}
+                Return Request #{returnRequest?.id} • Order #
+                {returnRequest?.orderNumber}
               </p>
               {/* Access Type Badge */}
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                isAuthenticated 
-                  ? 'bg-blue-100 text-blue-800' 
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                {isAuthenticated ? 'Authenticated' : 'Guest Access'}
+              <span
+                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                  isAuthenticated
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-green-100 text-green-800"
+                }`}
+              >
+                {isAuthenticated ? "Authenticated" : "Guest Access"}
               </span>
             </div>
           </div>
@@ -358,48 +396,64 @@ export default function AppealPage() {
               Appeal Information
             </CardTitle>
             <CardDescription>
-              Please provide detailed information about why you believe the return denial should be reconsidered.
+              Please provide detailed information about why you believe the
+              return denial should be reconsidered.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Reason */}
               <div className="space-y-2">
-                <label htmlFor="reason" className="text-sm font-medium">Appeal Reason *</label>
+                <label htmlFor="reason" className="text-sm font-medium">
+                  Appeal Reason *
+                </label>
                 <Input
                   id="reason"
                   placeholder="Brief reason for your appeal (e.g., Item was actually defective)"
                   value={formData.reason}
-                  onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, reason: e.target.value }))
+                  }
                   required
                 />
               </div>
 
               {/* Description */}
               <div className="space-y-2">
-                <label htmlFor="description" className="text-sm font-medium">Detailed Description</label>
+                <label htmlFor="description" className="text-sm font-medium">
+                  Detailed Description
+                </label>
                 <Textarea
                   id="description"
                   placeholder="Provide additional details about your appeal. Explain why you believe the original decision should be reconsidered."
                   value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
                   rows={4}
                 />
               </div>
 
               {/* File Upload */}
               <div className="space-y-4">
-                <label className="text-sm font-medium">Supporting Evidence *</label>
+                <label className="text-sm font-medium">
+                  Supporting Evidence *
+                </label>
                 <p className="text-sm text-muted-foreground">
-                  Upload images or videos that support your appeal. At least one file is required.
+                  Upload images or videos that support your appeal. At least one
+                  file is required.
                 </p>
-                
+
                 <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
                   <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Upload Evidence</p>
                     <p className="text-xs text-muted-foreground">
-                      Images up to 10MB, videos up to 50MB and 15 seconds (Max 5 files total)
+                      Images up to 10MB, videos up to 50MB and 15 seconds (Max 5
+                      files total)
                     </p>
                     <input
                       type="file"
@@ -412,7 +466,9 @@ export default function AppealPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => document.getElementById('file-upload')?.click()}
+                      onClick={() =>
+                        document.getElementById("file-upload")?.click()
+                      }
                     >
                       Select Files
                     </Button>
@@ -421,13 +477,18 @@ export default function AppealPage() {
 
                 {formData.mediaFiles.length > 0 && (
                   <div className="space-y-4">
-                    <label className="text-sm font-medium">Uploaded Files ({formData.mediaFiles.length}/5)</label>
+                    <label className="text-sm font-medium">
+                      Uploaded Files ({formData.mediaFiles.length}/5)
+                    </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {formData.mediaFiles.map((file, index) => (
-                        <div key={index} className="relative border rounded-md p-3 bg-gray-50">
+                        <div
+                          key={index}
+                          className="relative border rounded-md p-3 bg-gray-50"
+                        >
                           {/* Preview */}
                           <div className="mb-3">
-                            {file.type.startsWith('image/') ? (
+                            {file.type.startsWith("image/") ? (
                               <div className="relative w-full h-32 bg-gray-100 rounded-md overflow-hidden">
                                 <img
                                   src={URL.createObjectURL(file)}
@@ -435,7 +496,7 @@ export default function AppealPage() {
                                   className="w-full h-full object-cover"
                                 />
                               </div>
-                            ) : file.type.startsWith('video/') ? (
+                            ) : file.type.startsWith("video/") ? (
                               <div className="relative w-full h-32 bg-gray-100 rounded-md overflow-hidden">
                                 <video
                                   src={URL.createObjectURL(file)}
@@ -450,13 +511,16 @@ export default function AppealPage() {
                               </div>
                             )}
                           </div>
-                          
+
                           {/* File Info */}
                           <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              <p className="text-sm font-medium truncate">
+                                {file.name}
+                              </p>
                               <p className="text-xs text-muted-foreground">
-                                {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type.split('/')[0]}
+                                {(file.size / 1024 / 1024).toFixed(2)} MB •{" "}
+                                {file.type.split("/")[0]}
                               </p>
                             </div>
                             <Button
@@ -480,8 +544,10 @@ export default function AppealPage() {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Important:</strong> Appeals are reviewed by our senior customer service team within 3-5 business days. 
-                  Please ensure all information is accurate and complete as you can only submit one appeal per return request.
+                  <strong>Important:</strong> Appeals are reviewed by our senior
+                  customer service team within 3-5 business days. Please ensure
+                  all information is accurate and complete as you can only
+                  submit one appeal per return request.
                 </AlertDescription>
               </Alert>
 
