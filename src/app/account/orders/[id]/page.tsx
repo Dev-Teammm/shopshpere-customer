@@ -462,6 +462,7 @@ export default function AccountOrderDetailsPage() {
                 <ShopOrderGroup
                   key={shopOrder.shopOrderId}
                   shopOrder={shopOrder}
+                  isGuest={false}
                 />
               ))
             ) : (
@@ -498,9 +499,7 @@ export default function AccountOrderDetailsPage() {
               <div className="flex justify-between">
                 <span className="text-slate-600">Total Shipping:</span>
                 <span className="font-medium text-slate-900">
-                  {formatCurrency(
-                    order.totalShipping || order.shipping || 0,
-                  )}
+                  {formatCurrency(order.totalShipping || order.shipping || 0)}
                 </span>
               </div>
 
@@ -510,9 +509,7 @@ export default function AccountOrderDetailsPage() {
                   <span>Total Discount:</span>
                   <span className="font-medium">
                     -
-                    {formatCurrency(
-                      order.totalDiscount || order.discount || 0,
-                    )}
+                    {formatCurrency(order.totalDiscount || order.discount || 0)}
                   </span>
                 </div>
               )}
@@ -648,10 +645,10 @@ export default function AccountOrderDetailsPage() {
                   <span>Payment Status:</span>
                   <Badge
                     variant={
-                      (order.paymentInfo?.paymentStatus || order.paymentStatus) ===
-                        "COMPLETED" ||
-                      (order.paymentInfo?.paymentStatus || order.paymentStatus) ===
-                        "SUCCESS"
+                      (order.paymentInfo?.paymentStatus ||
+                        order.paymentStatus) === "COMPLETED" ||
+                      (order.paymentInfo?.paymentStatus ||
+                        order.paymentStatus) === "SUCCESS"
                         ? "default"
                         : "secondary"
                     }

@@ -313,7 +313,6 @@ export default function ReturnRequestPage() {
         // Authenticated user return request (Preffered if logged in)
         response = await ReturnService.submitReturnRequest(
           {
-            customerId: orderDetails.userId || null, // Backend handles null if authenticated
             orderId: orderDetails.id.toString(),
             reason: generalReason,
             returnItems,

@@ -27,10 +27,12 @@ import { format } from "date-fns";
 
 interface ShopOrderGroupProps {
   shopOrder: ShopOrderGroupType;
+  isGuest?: boolean;
 }
 
 export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
   shopOrder,
+  isGuest = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -405,7 +407,16 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
 
                               {ret.canBeAppealed && (
                                 <div className="mt-2 flex justify-end">
-                                  <button className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 transition-colors">
+                                  <button
+                                    onClick={() => {
+                                      let url = `/returns/appeal?returnRequestId=${ret.id}`;
+                                      if (isGuest && shopOrder.trackingToken) {
+                                        url += `&token=${shopOrder.trackingToken}`;
+                                      }
+                                      window.location.href = url;
+                                    }}
+                                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 transition-colors"
+                                  >
                                     Request Appeal
                                   </button>
                                 </div>
@@ -601,12 +612,14 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
               <div className="space-y-3 pt-2">
                 <button
                   onClick={() => {
-                    const orderId = shopOrder.shopOrderId.toString();
-                    let url = `/returns/order/${orderId}?isShopOrder=true`;
-                    if (shopOrder.trackingToken && shopOrder.shopOrderCode) {
-                      url += `&token=${shopOrder.trackingToken}&orderNumber=${shopOrder.shopOrderCode}`;
+                    if (isGuest) {
+                      const orderNumber = shopOrder.shopOrderCode;
+                      const token = shopOrder.trackingToken;
+                      window.location.href = `/returns/order/${orderNumber}?token=${token}`;
+                    } else {
+                      const shopOrderId = shopOrder.shopOrderId;
+                      window.location.href = `/returns/order/${shopOrderId}?isShopOrder=true`;
                     }
-                    window.location.href = url;
                   }}
                   className="w-full bg-white border border-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl shadow-sm hover:shadow-md hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
                 >
@@ -616,7 +629,11 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
 
                 <button
                   onClick={() => {
-                    window.location.href = `/returns/request?shopOrderId=${shopOrder.shopOrderId}&orderNumber=${shopOrder.shopOrderCode}&token=${shopOrder.trackingToken}`;
+                    let url = `/returns/request?shopOrderId=${shopOrder.shopOrderId}&orderNumber=${shopOrder.shopOrderCode}`;
+                    if (isGuest && shopOrder.trackingToken) {
+                      url += `&token=${shopOrder.trackingToken}`;
+                    }
+                    window.location.href = url;
                   }}
                   className="w-full bg-blue-600 border border-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
                 >
