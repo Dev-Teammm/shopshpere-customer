@@ -14,6 +14,9 @@ import {
   Circle,
   HelpCircle,
   Download,
+  QrCode,
+  X,
+  ZoomIn,
 } from "lucide-react";
 import {
   ShopOrderGroup as ShopOrderGroupType,
@@ -24,6 +27,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
+import QRCode from "qrcode";
+import { toast } from "sonner";
 
 interface ShopOrderGroupProps {
   shopOrder: ShopOrderGroupType;
@@ -35,6 +40,44 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
   isGuest = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrGenerating, setQrGenerating] = useState(false);
+
+  const generateShopQR = async () => {
+    if (!shopOrder.pickupToken) return;
+    setQrGenerating(true);
+    try {
+      const qrContent = `Shop: ${shopOrder.shopName} | Token: ${shopOrder.pickupToken}`;
+      const dataUrl = await QRCode.toDataURL(qrContent, {
+        width: 300,
+        margin: 2,
+        color: { dark: "#000000", light: "#FFFFFF" },
+      });
+      setQrDataUrl(dataUrl);
+    } catch (err) {
+      console.error("Failed to generate QR:", err);
+      toast.error("Failed to generate QR code");
+    } finally {
+      setQrGenerating(false);
+    }
+  };
+
+  const downloadQR = () => {
+    if (!qrDataUrl) return;
+    const link = document.createElement("a");
+    link.download = `${shopOrder.shopName.replace(/\s+/g, "_")}_pickup_qr.png`;
+    link.href = qrDataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("QR code downloaded");
+  };
+
+  const openQrModal = async () => {
+    if (!qrDataUrl) await generateShopQR();
+    setShowQrModal(true);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status.toUpperCase()) {
@@ -286,8 +329,8 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                                       ret.status === "APPROVED"
                                         ? "bg-green-100 text-green-700 border-green-200"
                                         : ret.status === "DENIED"
-                                          ? "bg-red-100 text-red-700 border-red-200"
-                                          : "bg-amber-100 text-amber-700 border-amber-200"
+                                        ? "bg-red-100 text-red-700 border-red-200"
+                                        : "bg-amber-100 text-amber-700 border-amber-200"
                                     }
                                   >
                                     {ret.status}
@@ -296,7 +339,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                                     Submitted{" "}
                                     {format(
                                       new Date(ret.submittedAt),
-                                      "MMM dd, yyyy",
+                                      "MMM dd, yyyy"
                                     )}
                                   </span>
                                 </div>
@@ -334,7 +377,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                                       <span className="ml-auto text-[10px] text-green-600 font-medium">
                                         {format(
                                           new Date(ret.refundProcessedAt),
-                                          "MMM dd, yyyy",
+                                          "MMM dd, yyyy"
                                         )}
                                       </span>
                                     )}
@@ -433,6 +476,67 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
 
             {/* Right Side: Tracking, Totals, Delivery Info */}
             <div className="lg:col-span-4 bg-slate-50/50 p-6 space-y-6 border-l">
+              {/* QR Code Section */}
+              {shopOrder.pickupToken && (
+                <div className="space-y-3">
+                  <h4 className="font-semibold flex items-center gap-2 text-slate-800 uppercase tracking-wider text-xs">
+                    <QrCode className="h-4 w-4 text-blue-500" />
+                    Pickup QR Code
+                  </h4>
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                    <div className="flex flex-col items-center gap-3">
+                      {qrDataUrl ? (
+                        <img
+                          src={qrDataUrl}
+                          alt="Pickup QR"
+                          className="w-32 h-32 rounded-lg border border-slate-200"
+                        />
+                      ) : (
+                        <div className="w-32 h-32 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center">
+                          {qrGenerating ? (
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                          ) : (
+                            <QrCode className="h-8 w-8 text-slate-300" />
+                          )}
+                        </div>
+                      )}
+                      <div className="text-center">
+                        <p className="text-xs font-mono text-slate-600 bg-slate-100 px-2 py-1 rounded truncate max-w-[200px]">
+                          {shopOrder.pickupToken}
+                        </p>
+                        {shopOrder.pickupTokenUsed && (
+                          <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px] mt-1">
+                            Verified
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex gap-2 w-full">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-xs"
+                          onClick={openQrModal}
+                          disabled={qrGenerating}
+                        >
+                          <ZoomIn className="h-3 w-3 mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-xs"
+                          onClick={downloadQR}
+                          disabled={!qrDataUrl}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Download
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Delivery Detailed Info */}
               <div className="space-y-4">
                 <h4 className="font-semibold flex items-center gap-2 text-slate-800 uppercase tracking-wider text-xs">
@@ -480,7 +584,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                           <span className="text-sm font-bold text-slate-800">
                             {format(
                               new Date(shopOrder.deliveryInfo.scheduledAt),
-                              "MMMM dd, yyyy",
+                              "MMMM dd, yyyy"
                             )}
                           </span>
                         </div>
@@ -531,7 +635,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                       Left on{" "}
                       {format(
                         new Date(shopOrder.deliveryNote.createdAt),
-                        "MMM dd, yyyy",
+                        "MMM dd, yyyy"
                       )}
                     </p>
                   </div>
@@ -594,8 +698,8 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                       {formatCurrency(
                         Math.max(
                           0,
-                          shopOrder.total - (shopOrder.pointsValue || 0),
-                        ),
+                          shopOrder.total - (shopOrder.pointsValue || 0)
+                        )
                       )}
                     </span>
                   </div>
@@ -641,6 +745,50 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                   Request New Return
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Modal */}
+      {showQrModal && qrDataUrl && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-900">
+                Pickup QR Code
+              </h3>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setShowQrModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex flex-col items-center gap-4">
+              <img
+                src={qrDataUrl}
+                alt="Pickup QR"
+                className="w-64 h-64 rounded-xl border-2 border-slate-200"
+              />
+              <div className="text-center space-y-2">
+                <p className="text-sm font-semibold text-slate-700">
+                  {shopOrder.shopName}
+                </p>
+                <p className="text-xs font-mono text-slate-600 bg-slate-100 px-3 py-1 rounded">
+                  {shopOrder.pickupToken}
+                </p>
+                {shopOrder.pickupTokenUsed && (
+                  <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+                    Verified
+                  </Badge>
+                )}
+              </div>
+              <Button onClick={downloadQR} className="w-full">
+                <Download className="h-4 w-4 mr-2" />
+                Download QR Code
+              </Button>
             </div>
           </div>
         </div>
