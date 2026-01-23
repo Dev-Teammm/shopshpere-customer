@@ -92,7 +92,9 @@ export default function OrderReturnRequestsPage() {
 
   const handleBack = () => {
     if (isGuestMode) {
-      router.push(`/track-order?token=${encodeURIComponent(trackingToken || "")}`);
+      router.push(
+        `/track-order?token=${encodeURIComponent(trackingToken || "")}`,
+      );
     } else {
       router.push(`/account/orders/${orderId}`);
     }
@@ -435,13 +437,18 @@ export default function OrderReturnRequestsPage() {
                                 src={request.refundScreenshotUrl}
                                 alt="Refund payment screenshot"
                                 className="max-w-xs max-h-48 object-contain border rounded-md cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={() => window.open(request.refundScreenshotUrl, '_blank')}
+                                onClick={() =>
+                                  window.open(
+                                    request.refundScreenshotUrl,
+                                    "_blank",
+                                  )
+                                }
                               />
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
-                                  const link = document.createElement('a');
+                                  const link = document.createElement("a");
                                   link.href = request.refundScreenshotUrl;
                                   link.download = `refund-screenshot-${request.id}.png`;
                                   document.body.appendChild(link);
