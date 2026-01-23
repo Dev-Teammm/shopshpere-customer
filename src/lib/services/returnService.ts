@@ -138,16 +138,12 @@ export class ReturnService {
    */
   static async getReturnRequestsByOrderId(
     orderId: number,
-    customerId: string,
   ): Promise<ReturnRequest[]> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/order/${orderId}?customerId=${customerId}`,
-        {
-          method: "GET",
-          headers: getAuthHeaders(),
-        },
-      );
+      const response = await fetch(`${this.baseUrl}/order/${orderId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -166,11 +162,10 @@ export class ReturnService {
    */
   static async getReturnRequestsByShopOrderId(
     shopOrderId: number,
-    customerId: string,
   ): Promise<ReturnRequest[]> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/shop-order/${shopOrderId}?customerId=${customerId}`,
+        `${this.baseUrl}/shop-order/${shopOrderId}`,
         {
           method: "GET",
           headers: getAuthHeaders(),

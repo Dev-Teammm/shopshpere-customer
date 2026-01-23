@@ -253,9 +253,8 @@ export default function AppealPage() {
       });
 
       let response;
-      if (isAuthenticated && returnRequest?.customerId) {
+      if (isAuthenticated) {
         // Authenticated user appeal
-        appealFormData.append("customerId", returnRequest.customerId);
         response = await ReturnService.submitAppeal(appealFormData);
       } else if (trackingToken) {
         // Guest user with tracking token

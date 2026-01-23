@@ -175,7 +175,7 @@ export class ReturnService {
       });
     }
 
-    const response = await fetch(`${API_BASE_URL}/returns/submit/guest`, {
+    const response = await fetch(`${API_BASE_URL}/returns/submit/tokenized`, {
       method: "POST",
       body: formData,
     });

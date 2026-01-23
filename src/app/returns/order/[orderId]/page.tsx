@@ -38,7 +38,6 @@ export default function OrderReturnRequestsPage() {
   const orderId = params.orderId as string;
   const trackingToken = searchParams.get("token");
   const orderNumber = searchParams.get("orderNumber");
-  const customerId = searchParams.get("customerId");
   const isShopOrder = searchParams.get("isShopOrder") === "true";
 
   const [returnRequests, setReturnRequests] = useState<ReturnRequest[]>([]);
@@ -49,7 +48,7 @@ export default function OrderReturnRequestsPage() {
 
   useEffect(() => {
     fetchReturnRequests();
-  }, [orderId, trackingToken, orderNumber, customerId, isShopOrder]);
+  }, [orderId, trackingToken, orderNumber, isShopOrder]);
 
   const fetchReturnRequests = async () => {
     setIsLoading(true);
@@ -68,34 +67,14 @@ export default function OrderReturnRequestsPage() {
           trackingToken,
         );
       } else {
-        // Authenticated user
-        if (!customerId) {
-          // If no customerId in params, try to get from localStorage (though usually passed or context)
-          // For now fail if missing as per existing logic, or rely on service to handle auth
-          if (typeof window !== "undefined") {
-            const storedUser = localStorage.getItem("user");
-            if (storedUser) {
-              const user = JSON.parse(storedUser);
-              if (user && user.id) {
-                // We can proceed if we have user ID
-              } else {
-                throw new Error("Customer ID is required");
-              }
-            } else {
-              throw new Error("Customer ID is required");
-            }
-          }
-        }
-
+        // Authenticated user - rely on auth token in service
         if (isShopOrder) {
           requests = await ReturnService.getReturnRequestsByShopOrderId(
             parseInt(orderId),
-            customerId || JSON.parse(localStorage.getItem("user") || "{}").id,
           );
         } else {
           requests = await ReturnService.getReturnRequestsByOrderId(
             parseInt(orderId),
-            customerId || JSON.parse(localStorage.getItem("user") || "{}").id,
           );
         }
       }

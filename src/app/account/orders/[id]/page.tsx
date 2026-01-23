@@ -346,8 +346,8 @@ export default function AccountOrderDetailsPage() {
                 {order.orderDate
                   ? new Date(order.orderDate).toLocaleDateString()
                   : order.createdAt
-                    ? new Date(order.createdAt).toLocaleDateString()
-                    : "N/A"}
+                  ? new Date(order.createdAt).toLocaleDateString()
+                  : "N/A"}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -368,8 +368,8 @@ export default function AccountOrderDetailsPage() {
                         returnRequest.status === "APPROVED"
                           ? "text-green-600 border-green-300 bg-green-50"
                           : returnRequest.status === "DENIED"
-                            ? "text-red-600 border-red-300 bg-red-50"
-                            : "text-orange-600 border-orange-300 bg-orange-50"
+                          ? "text-red-600 border-red-300 bg-red-50"
+                          : "text-orange-600 border-orange-300 bg-orange-50"
                       }
                     >
                       Return: {returnRequest.status}
@@ -406,62 +406,12 @@ export default function AccountOrderDetailsPage() {
               <Package className="h-6 w-6 text-blue-600" />
               Order Items by Shop
             </h2>
-            {order.pickupToken && qrCodeDataUrl && (
-              <Card className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white border-0 shadow-xl overflow-hidden mb-6">
-                <CardContent className="p-0">
-                  <div className="flex flex-col md:flex-row items-center">
-                    <div className="p-8 space-y-4 flex-1">
-                      <div className="bg-white/20 w-fit p-1.5 rounded-lg backdrop-blur-sm">
-                        <QrCode className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <h2 className="text-2xl font-black tracking-tight">
-                          Ready for Pickup?
-                        </h2>
-                        <p className="text-blue-100 mt-1 font-medium italic">
-                          Present this QR code to the delivery agent to verify
-                          your shipment.
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 pt-2">
-                        <div className="bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/20">
-                          <code className="font-mono text-lg font-black tracking-widest">
-                            {order.pickupToken}
-                          </code>
-                        </div>
-                        <Button
-                          variant="secondary"
-                          size="icon"
-                          className="rounded-full h-10 w-10 shadow-lg hover:scale-110 transition-transform"
-                          onClick={() =>
-                            downloadQRCode(
-                              qrCodeDataUrl,
-                              `pickup-token-${order.orderCode}.png`,
-                            )
-                          }
-                        >
-                          <Download className="h-5 w-5" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="bg-white p-6 md:p-8 flex items-center justify-center">
-                      <div className="bg-white p-4 rounded-3xl shadow-2xl border-4 border-slate-50">
-                        <img
-                          src={qrCodeDataUrl}
-                          alt="Pickup Token QR Code"
-                          className="w-48 h-48"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
             {order.shopOrders && order.shopOrders.length > 0 ? (
               order.shopOrders.map((shopOrder) => (
                 <ShopOrderGroup
                   key={shopOrder.shopOrderId}
                   shopOrder={shopOrder}
+                  isGuest={false}
                 />
               ))
             ) : (
@@ -498,9 +448,7 @@ export default function AccountOrderDetailsPage() {
               <div className="flex justify-between">
                 <span className="text-slate-600">Total Shipping:</span>
                 <span className="font-medium text-slate-900">
-                  {formatCurrency(
-                    order.totalShipping || order.shipping || 0,
-                  )}
+                  {formatCurrency(order.totalShipping || order.shipping || 0)}
                 </span>
               </div>
 
@@ -510,9 +458,7 @@ export default function AccountOrderDetailsPage() {
                   <span>Total Discount:</span>
                   <span className="font-medium">
                     -
-                    {formatCurrency(
-                      order.totalDiscount || order.discount || 0,
-                    )}
+                    {formatCurrency(order.totalDiscount || order.discount || 0)}
                   </span>
                 </div>
               )}
@@ -648,10 +594,10 @@ export default function AccountOrderDetailsPage() {
                   <span>Payment Status:</span>
                   <Badge
                     variant={
-                      (order.paymentInfo?.paymentStatus || order.paymentStatus) ===
-                        "COMPLETED" ||
-                      (order.paymentInfo?.paymentStatus || order.paymentStatus) ===
-                        "SUCCESS"
+                      (order.paymentInfo?.paymentStatus ||
+                        order.paymentStatus) === "COMPLETED" ||
+                      (order.paymentInfo?.paymentStatus ||
+                        order.paymentStatus) === "SUCCESS"
                         ? "default"
                         : "secondary"
                     }

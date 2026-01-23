@@ -52,7 +52,7 @@ export default function OrderDetailPage() {
   const token = searchParams.get("token");
 
   const [orderDetails, setOrderDetails] = useState<OrderDetailsResponse | null>(
-    null
+    null,
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export default function OrderDetailPage() {
   useEffect(() => {
     if (!token) {
       setError(
-        "No access token provided. Please use the link from your email."
+        "No access token provided. Please use the link from your email.",
       );
       setIsLoading(false);
       return;
@@ -90,7 +90,7 @@ export default function OrderDetailPage() {
     try {
       const orderDetails = await OrderService.getOrderByTokenAndId(
         token,
-        parseInt(orderId)
+        parseInt(orderId),
       );
       setOrderDetails(orderDetails);
 
@@ -119,7 +119,7 @@ export default function OrderDetailPage() {
     try {
       const data = await orderActivitiesService.getOrderActivitiesWithToken(
         orderId,
-        token
+        token,
       );
       setTimelineActivities(data.activities || []);
     } catch (error) {
@@ -134,9 +134,8 @@ export default function OrderDetailPage() {
   const checkForReturnRequest = async (orderNumber: string) => {
     try {
       setCheckingReturn(true);
-      const returnRequest = await ReturnService.getReturnByOrderNumber(
-        orderNumber
-      );
+      const returnRequest =
+        await ReturnService.getReturnByOrderNumber(orderNumber);
       setHasReturnRequest(!!returnRequest);
     } catch (error) {
       // No return request found or error - that's okay
@@ -308,14 +307,14 @@ export default function OrderDetailPage() {
                 {orderDetails.orderDate
                   ? new Date(orderDetails.orderDate).toLocaleDateString()
                   : orderDetails.createdAt
-                  ? new Date(orderDetails.createdAt).toLocaleDateString()
-                  : "N/A"}
+                    ? new Date(orderDetails.createdAt).toLocaleDateString()
+                    : "N/A"}
               </p>
             </div>
             <div className="flex items-center gap-3">
               <Badge
                 className={getStatusColor(
-                  orderDetails.overallStatus || orderDetails.status || ""
+                  orderDetails.overallStatus || orderDetails.status || "",
                 )}
               >
                 {orderDetails.overallStatus || orderDetails.status}
@@ -361,6 +360,8 @@ export default function OrderDetailPage() {
                 <ShopOrderGroup
                   key={shopOrder.shopOrderId}
                   shopOrder={shopOrder}
+                  isGuest={true}
+                  guestToken={token}
                 />
               ))
             ) : (
@@ -392,7 +393,7 @@ export default function OrderDetailPage() {
                 <span className="text-slate-600">Total Shipping:</span>
                 <span className="font-medium text-slate-900">
                   {formatCurrency(
-                    orderDetails.totalShipping || orderDetails.shipping || 0
+                    orderDetails.totalShipping || orderDetails.shipping || 0,
                   )}
                 </span>
               </div>
@@ -403,7 +404,7 @@ export default function OrderDetailPage() {
                   <span className="font-medium">
                     -
                     {formatCurrency(
-                      orderDetails.totalDiscount || orderDetails.discount || 0
+                      orderDetails.totalDiscount || orderDetails.discount || 0,
                     )}
                   </span>
                 </div>
@@ -421,7 +422,7 @@ export default function OrderDetailPage() {
                 <span>Grand Total:</span>
                 <span>
                   {formatCurrency(
-                    orderDetails.grandTotal || orderDetails.total || 0
+                    orderDetails.grandTotal || orderDetails.total || 0,
                   )}
                 </span>
               </div>
