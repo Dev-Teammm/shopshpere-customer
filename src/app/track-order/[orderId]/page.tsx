@@ -361,6 +361,7 @@ export default function OrderDetailPage() {
                   key={shopOrder.shopOrderId}
                   shopOrder={shopOrder}
                   isGuest={true}
+                  guestToken={token}
                 />
               ))
             ) : (

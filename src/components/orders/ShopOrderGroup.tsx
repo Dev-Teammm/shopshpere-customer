@@ -33,11 +33,13 @@ import { toast } from "sonner";
 interface ShopOrderGroupProps {
   shopOrder: ShopOrderGroupType;
   isGuest?: boolean;
+  guestToken?: string;
 }
 
 export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
   shopOrder,
   isGuest = false,
+  guestToken,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -329,8 +331,8 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                                       ret.status === "APPROVED"
                                         ? "bg-green-100 text-green-700 border-green-200"
                                         : ret.status === "DENIED"
-                                        ? "bg-red-100 text-red-700 border-red-200"
-                                        : "bg-amber-100 text-amber-700 border-amber-200"
+                                          ? "bg-red-100 text-red-700 border-red-200"
+                                          : "bg-amber-100 text-amber-700 border-amber-200"
                                     }
                                   >
                                     {ret.status}
@@ -339,7 +341,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                                     Submitted{" "}
                                     {format(
                                       new Date(ret.submittedAt),
-                                      "MMM dd, yyyy"
+                                      "MMM dd, yyyy",
                                     )}
                                   </span>
                                 </div>
@@ -377,7 +379,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                                       <span className="ml-auto text-[10px] text-green-600 font-medium">
                                         {format(
                                           new Date(ret.refundProcessedAt),
-                                          "MMM dd, yyyy"
+                                          "MMM dd, yyyy",
                                         )}
                                       </span>
                                     )}
@@ -584,7 +586,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                           <span className="text-sm font-bold text-slate-800">
                             {format(
                               new Date(shopOrder.deliveryInfo.scheduledAt),
-                              "MMMM dd, yyyy"
+                              "MMMM dd, yyyy",
                             )}
                           </span>
                         </div>
@@ -635,7 +637,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                       Left on{" "}
                       {format(
                         new Date(shopOrder.deliveryNote.createdAt),
-                        "MMM dd, yyyy"
+                        "MMM dd, yyyy",
                       )}
                     </p>
                   </div>
@@ -698,8 +700,8 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                       {formatCurrency(
                         Math.max(
                           0,
-                          shopOrder.total - (shopOrder.pointsValue || 0)
-                        )
+                          shopOrder.total - (shopOrder.pointsValue || 0),
+                        ),
                       )}
                     </span>
                   </div>
@@ -718,8 +720,8 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                   onClick={() => {
                     if (isGuest) {
                       const orderNumber = shopOrder.shopOrderCode;
-                      const token = shopOrder.trackingToken;
-                      window.location.href = `/returns/order/${orderNumber}?token=${token}`;
+                      const token = guestToken || shopOrder.trackingToken;
+                      window.location.href = `/returns/order/${orderNumber}?token=${encodeURIComponent(token)}&orderNumber=${orderNumber}`;
                     } else {
                       const shopOrderId = shopOrder.shopOrderId;
                       window.location.href = `/returns/order/${shopOrderId}?isShopOrder=true`;
@@ -734,8 +736,8 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                 <button
                   onClick={() => {
                     let url = `/returns/request?shopOrderId=${shopOrder.shopOrderId}&orderNumber=${shopOrder.shopOrderCode}`;
-                    if (isGuest && shopOrder.trackingToken) {
-                      url += `&token=${shopOrder.trackingToken}`;
+                    if (isGuest && guestToken) {
+                      url += `&token=${encodeURIComponent(guestToken)}`;
                     }
                     window.location.href = url;
                   }}
