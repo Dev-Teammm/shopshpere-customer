@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   Video,
   Info,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +39,6 @@ export default function OrderReturnRequestsPage() {
   const orderId = params.orderId as string;
   const trackingToken = searchParams.get("token");
   const orderNumber = searchParams.get("orderNumber");
-  const isShopOrder = searchParams.get("isShopOrder") === "true";
 
   const [returnRequests, setReturnRequests] = useState<ReturnRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,7 +48,7 @@ export default function OrderReturnRequestsPage() {
 
   useEffect(() => {
     fetchReturnRequests();
-  }, [orderId, trackingToken, orderNumber, isShopOrder]);
+  }, [orderId, trackingToken, orderNumber]);
 
   const fetchReturnRequests = async () => {
     setIsLoading(true);
@@ -67,16 +67,10 @@ export default function OrderReturnRequestsPage() {
           trackingToken,
         );
       } else {
-        // Authenticated user - rely on auth token in service
-        if (isShopOrder) {
-          requests = await ReturnService.getReturnRequestsByShopOrderId(
-            parseInt(orderId),
-          );
-        } else {
-          requests = await ReturnService.getReturnRequestsByOrderId(
-            parseInt(orderId),
-          );
-        }
+        // Authenticated user - all orders are shop-based
+        requests = await ReturnService.getReturnRequestsByShopOrderId(
+          parseInt(orderId),
+        );
       }
 
       setReturnRequests(requests);
@@ -98,7 +92,9 @@ export default function OrderReturnRequestsPage() {
 
   const handleBack = () => {
     if (isGuestMode) {
-      router.push(`/track-order/${orderId}?token=${trackingToken}`);
+      router.push(
+        `/track-order?token=${encodeURIComponent(trackingToken || "")}`,
+      );
     } else {
       router.push(`/account/orders/${orderId}`);
     }
@@ -430,6 +426,42 @@ export default function OrderReturnRequestsPage() {
                             <span className="font-medium">Notes:</span>{" "}
                             {request.decisionNotes}
                           </p>
+                        )}
+                        {request.refundScreenshotUrl && (
+                          <div className="mt-3">
+                            <p className="text-sm font-medium mb-2">
+                              Payment Screenshot:
+                            </p>
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={request.refundScreenshotUrl}
+                                alt="Refund payment screenshot"
+                                className="max-w-xs max-h-48 object-contain border rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() =>
+                                  window.open(
+                                    request.refundScreenshotUrl,
+                                    "_blank",
+                                  )
+                                }
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const link = document.createElement("a");
+                                  link.href = request.refundScreenshotUrl;
+                                  link.download = `refund-screenshot-${request.id}.png`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                }}
+                                className="flex items-center gap-2"
+                              >
+                                <Download className="h-4 w-4" />
+                                Download
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>

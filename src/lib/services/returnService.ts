@@ -28,6 +28,7 @@ export interface ReturnRequest {
   decisionNotes?: string;
   refundAmount?: number;
   refundMethod?: string;
+  refundScreenshotUrl?: string;
   returnAppeal?: ReturnAppeal;
   canBeAppealed?: boolean;
   daysUntilExpiry?: number;

@@ -554,7 +554,7 @@ export function CheckoutClient() {
       }
 
       // Check if this is a mock payment (relative URL) or Stripe session (absolute URL)
-      if (sessionUrl.startsWith('/')) {
+      if (sessionUrl.startsWith('/') && !sessionUrl.startsWith('http')) {
         // Mock payment - redirect to success page
         router.push(sessionUrl);
       } else {
@@ -730,7 +730,7 @@ export function CheckoutClient() {
   const handleHybridPayment = (stripeSessionId: string, orderId: number) => {
     setShowPointsModal(false);
     // Check if this is a mock payment (relative URL) or Stripe session (absolute URL)
-    if (stripeSessionId.startsWith('/')) {
+    if (stripeSessionId.startsWith('/') && !stripeSessionId.startsWith('http')) {
       // Mock payment - redirect to success page
       router.push(stripeSessionId);
     } else {

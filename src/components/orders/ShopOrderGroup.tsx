@@ -724,7 +724,7 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
                       window.location.href = `/returns/order/${orderNumber}?token=${encodeURIComponent(token)}&orderNumber=${orderNumber}`;
                     } else {
                       const shopOrderId = shopOrder.shopOrderId;
-                      window.location.href = `/returns/order/${shopOrderId}?isShopOrder=true`;
+                      window.location.href = `/returns/order/${shopOrderId}`;
                     }
                   }}
                   className="w-full bg-white border border-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl shadow-sm hover:shadow-md hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
