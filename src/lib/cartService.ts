@@ -80,6 +80,13 @@ interface CartProductsResponse {
       attributeTypeName: string;
       attributeValue: string;
     }[];
+    // Discount information
+    discountPercentage?: number;
+    discountName?: string;
+    discountAmount?: number;
+    hasDiscount?: boolean;
+    // Shop capability
+    shopCapability?: "VISUALIZATION_ONLY" | "PICKUP_ORDERS" | "FULL_ECOMMERCE" | "HYBRID";
   }[];
   subtotal: number;
   totalItems: number;
@@ -650,9 +657,13 @@ async function getCartFromBackend(): Promise<CartResponse> {
       items: cartData.items.map((item) => {
         const originalPrice = item.previousPrice || item.price;
         const currentPrice = item.price;
-        const hasDiscount = item.previousPrice && item.previousPrice > item.price;
-        const discountAmount = hasDiscount ? (originalPrice - currentPrice) * item.quantity : 0;
-        const discountPercentage = hasDiscount ? ((originalPrice - currentPrice) / originalPrice) * 100 : 0;
+        // Use backend discount info if available, otherwise calculate
+        const hasDiscount = item.hasDiscount ?? (item.previousPrice && item.previousPrice > item.price);
+        const discountAmount = item.discountAmount ?? (hasDiscount ? (originalPrice - currentPrice) * item.quantity : 0);
+        const discountPercentage = item.discountPercentage 
+          ? Number(item.discountPercentage) 
+          : (hasDiscount ? ((originalPrice - currentPrice) / originalPrice) * 100 : 0);
+        const discountName = item.discountName || (hasDiscount ? "Discount" : undefined);
         
         return {
           id: item.itemId,
@@ -672,7 +683,7 @@ async function getCartFromBackend(): Promise<CartResponse> {
           hasDiscount: hasDiscount || false,
           discountAmount: discountAmount,
           discountPercentage: discountPercentage,
-          discountName: hasDiscount ? "Discount" : undefined,
+          discountName: discountName,
           // Shop capability
           shopCapability: item.shopCapability || undefined,
         };

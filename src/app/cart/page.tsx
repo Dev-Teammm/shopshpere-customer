@@ -587,7 +587,7 @@ export default function CartPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <div className="flex flex-col items-center">
+                      <div className="flex flex-col items-center gap-1">
                         <span className="font-medium">
                           {formatPrice(item.price)}
                         </span>
@@ -597,10 +597,17 @@ export default function CartPage() {
                               {formatPrice(item.originalPrice)}
                             </span>
                           )}
-                        {item.hasDiscount && item.discountPercentage && (
-                          <Badge variant="destructive" className="text-xs mt-1">
-                            -{Math.round(item.discountPercentage)}% OFF
-                          </Badge>
+                        {item.hasDiscount && (
+                          <div className="flex flex-col items-center gap-0.5 mt-1">
+                            <Badge variant="destructive" className="text-xs">
+                              -{Math.round(item.discountPercentage || 0)}% OFF
+                            </Badge>
+                            {item.discountName && (
+                              <span className="text-xs text-green-600 font-medium">
+                                {item.discountName}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </TableCell>
@@ -793,7 +800,7 @@ export default function CartPage() {
                       </div>
 
                       <div className="flex items-center justify-between mt-auto">
-                        <div className="flex flex-col">
+                        <div className="flex flex-col gap-1">
                           <span className="font-medium">
                             {formatPrice(item.price)}
                           </span>
@@ -803,13 +810,20 @@ export default function CartPage() {
                                 {formatPrice(item.originalPrice)}
                               </span>
                             )}
-                          {item.hasDiscount && item.discountPercentage && (
-                            <Badge
-                              variant="destructive"
-                              className="text-xs mt-1 w-fit"
-                            >
-                              -{Math.round(item.discountPercentage)}% OFF
-                            </Badge>
+                          {item.hasDiscount && (
+                            <div className="flex flex-col gap-0.5">
+                              <Badge
+                                variant="destructive"
+                                className="text-xs w-fit"
+                              >
+                                -{Math.round(item.discountPercentage || 0)}% OFF
+                              </Badge>
+                              {item.discountName && (
+                                <span className="text-xs text-green-600 font-medium">
+                                  {item.discountName}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
 
@@ -995,14 +1009,21 @@ export default function CartPage() {
                       .map((item, index) => (
                         <div
                           key={index}
-                          className="flex justify-between text-sm"
+                          className="flex flex-col gap-0.5 text-sm"
                         >
-                          <span className="text-muted-foreground">
-                            {item.name} ({item.discountName || "Discount"})
-                          </span>
-                          <span className="text-green-600 font-medium">
-                            -{formatPrice(calculateItemDiscount(item))}
-                          </span>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground font-medium">
+                              {item.name}
+                            </span>
+                            <span className="text-green-600 font-medium">
+                              -{formatPrice(calculateItemDiscount(item))}
+                            </span>
+                          </div>
+                          {item.discountName && (
+                            <span className="text-xs text-green-600">
+                              {item.discountName} ({Math.round(item.discountPercentage || 0)}% off)
+                            </span>
+                          )}
                         </div>
                       ))}
                     <div className="flex justify-between text-sm font-medium text-green-600 border-t pt-2">
