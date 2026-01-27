@@ -34,6 +34,7 @@ interface ProductCardProps {
   isFeatured?: boolean;
   hasVariantDiscounts?: boolean;
   maxVariantDiscount?: number;
+  shopCapability?: "VISUALIZATION_ONLY" | "PICKUP_ORDERS" | "FULL_ECOMMERCE" | "HYBRID";
 }
 
 const ProductCard = ({
@@ -57,7 +58,9 @@ const ProductCard = ({
   isFeatured,
   hasVariantDiscounts,
   maxVariantDiscount,
+  shopCapability,
 }: ProductCardProps) => {
+  const isVisualizationOnly = shopCapability === "VISUALIZATION_ONLY";
   const [cartItems, setCartItems] = useState<string[]>([]);
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -378,30 +381,32 @@ const ProductCard = ({
             {/* Buttons (appear on hover) */}
             <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
               <div className="flex flex-col gap-2">
-                <Button
-                  className={`w-full h-10 sm:h-9 text-sm ${
-                    isInCart(id) ? "bg-success hover:bg-success/90" : ""
-                  }`}
-                  onClick={handleCartToggle}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Loading...
-                    </>
-                  ) : isInCart(id) ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Added to Cart
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Add to Cart
-                    </>
-                  )}
-                </Button>
+                {!isVisualizationOnly && (
+                  <Button
+                    className={`w-full h-10 sm:h-9 text-sm ${
+                      isInCart(id) ? "bg-success hover:bg-success/90" : ""
+                    }`}
+                    onClick={handleCartToggle}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Loading...
+                      </>
+                    ) : isInCart(id) ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Added to Cart
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="h-4 w-4 mr-2" />
+                        Add to Cart
+                      </>
+                    )}
+                  </Button>
+                )}
 
                 <Link href={`/product/${id}`} className="w-full">
                   <Button

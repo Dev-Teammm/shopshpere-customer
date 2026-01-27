@@ -349,6 +349,20 @@ export function CheckoutClient() {
       
       const errorDetails = extractErrorDetails(error);
       
+      // Check for shop capability errors
+      const errorMessage = errorDetails.message || error?.response?.data?.message || error?.message || "";
+      if (errorMessage.toLowerCase().includes("visualization") || 
+          errorMessage.toLowerCase().includes("does not accept orders") ||
+          errorMessage.toLowerCase().includes("only displays products")) {
+        toast.error(
+          "Cannot proceed to checkout. Some items in your cart are from shops that only display products and do not accept orders. Please remove these items from your cart.",
+          { duration: 8000 }
+        );
+        // Redirect to cart page
+        router.push("/cart");
+        return;
+      }
+      
       // Check for road validation errors
       if (errorDetails.errorCode === "VALIDATION_ERROR" && 
           (errorDetails.message?.includes("road") || errorDetails.details?.includes("road") ||

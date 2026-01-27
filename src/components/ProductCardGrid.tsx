@@ -28,6 +28,7 @@ interface Product {
   hasVariantDiscounts?: boolean;
   maxVariantDiscount?: number;
   discountedVariantsCount?: number;
+  shopCapability?: "VISUALIZATION_ONLY" | "PICKUP_ORDERS" | "FULL_ECOMMERCE" | "HYBRID";
 }
 
 interface ProductCardGridProps {
@@ -59,6 +60,11 @@ const ProductCardGrid = ({
   const handleAddToCart = async (product: Product) => {
     if (!isAuthenticated) {
       // Redirect to login or show login modal
+      return;
+    }
+
+    // Don't allow adding to cart for visualization-only shops
+    if (product.shopCapability === "VISUALIZATION_ONLY") {
       return;
     }
 
@@ -195,18 +201,20 @@ const ProductCardGrid = ({
                       }`}
                     />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    className="h-8 w-8 bg-white/90 hover:bg-white"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleAddToCart(product);
-                    }}
-                    disabled={loadingStates.has(product.id)}
-                  >
-                    <ShoppingCart className="h-4 w-4 text-gray-600" />
-                  </Button>
+                  {product.shopCapability !== "VISUALIZATION_ONLY" && (
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="h-8 w-8 bg-white/90 hover:bg-white"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleAddToCart(product);
+                      }}
+                      disabled={loadingStates.has(product.id)}
+                    >
+                      <ShoppingCart className="h-4 w-4 text-gray-600" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </Link>
