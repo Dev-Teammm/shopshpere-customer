@@ -41,11 +41,17 @@ export function validateCartItems(items: CartItemDTO[]): string[] {
   return errors;
 }
 
+export interface ShopFulfillmentPreference {
+  shopId: string;
+  fulfillmentType: "PICKUP" | "DELIVERY";
+}
+
 export interface CalculateOrderShippingRequest {
   deliveryAddress: AddressDto;
   items: CartItemDTO[];
   orderValue: number;
   userId?: string;
+  shopFulfillmentPreferences?: ShopFulfillmentPreference[];
 }
 
 export interface ShopSummary {
@@ -65,6 +71,11 @@ export interface ShopSummary {
   selectedWarehouseName?: string;
   selectedWarehouseCountry?: string;
   isInternationalShipping?: boolean;
+  // Shop capability and fulfillment information
+  shopCapability?: "VISUALIZATION_ONLY" | "PICKUP_ORDERS" | "FULL_ECOMMERCE" | "HYBRID";
+  fulfillmentType?: "PICKUP" | "DELIVERY";
+  packagingFee?: number;
+  requiresFulfillmentChoice?: boolean;
 }
 
 export interface PaymentSummaryDTO {

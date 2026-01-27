@@ -58,12 +58,18 @@ export interface CreateOrderAddressRequest {
   phone: string;
 }
 
+export interface ShopFulfillmentPreference {
+  shopId: string;
+  fulfillmentType: "PICKUP" | "DELIVERY";
+}
+
 export interface CheckoutRequest {
   items: CartItemDTO[];
   shippingAddress: AddressDto;
   currency?: string;
   userId?: string;
   platform: string;
+  shopFulfillmentPreferences?: ShopFulfillmentPreference[];
 }
 
 export interface GuestCheckoutRequest {
@@ -74,6 +80,7 @@ export interface GuestCheckoutRequest {
   address: AddressDto;
   items: CartItemDTO[];
   platform: string;
+  shopFulfillmentPreferences?: ShopFulfillmentPreference[];
 }
 
 export interface CartItemDTO {
