@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +55,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useAppSelector } from "@/lib/store/hooks";
 import { formatPrice as formatPriceUtil } from "@/lib/utils/priceFormatter";
 import { PaymentIcons } from "@/components/PaymentIcons";
+import { ShopCapabilityBadge, ShopCapabilityDialog } from "@/components/ShopCapabilityDialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function CartPage() {
   const router = useRouter();
@@ -63,6 +71,8 @@ export default function CartPage() {
   const [isRemovingItem, setIsRemovingItem] = useState<string | null>(null);
   const [isUpdatingItem, setIsUpdatingItem] = useState<string | null>(null);
   const [editingQuantity, setEditingQuantity] = useState<{[key: string]: string}>({});
+  const [showCapabilityDialog, setShowCapabilityDialog] = useState(false);
+  const [selectedCapability, setSelectedCapability] = useState<"VISUALIZATION_ONLY" | "PICKUP_ORDERS" | "FULL_ECOMMERCE" | "HYBRID" | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(0); // Backend uses 0-based pagination
@@ -325,6 +335,19 @@ export default function CartPage() {
       return;
     }
 
+    // Validate that no items are from VISUALIZATION_ONLY shops
+    const visualizationOnlyItems = cart.items.filter(
+      (item) => item.shopCapability === "VISUALIZATION_ONLY"
+    );
+
+    if (visualizationOnlyItems.length > 0) {
+      toast.error(
+        `Cannot proceed to checkout. ${visualizationOnlyItems.length} item(s) are from shops that only display products and do not accept orders. Please remove these items or contact the shops directly.`,
+        { duration: 6000 }
+      );
+      return;
+    }
+
     router.push("/checkout");
   };
 
@@ -497,7 +520,7 @@ export default function CartPage() {
                           >
                             {item.name}
                           </Link>
-                          <div className="flex items-center mt-1">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <div className="flex items-center">
                               {[...Array(5)].map((_, i) => (
                                 <Star
@@ -510,9 +533,41 @@ export default function CartPage() {
                                 />
                               ))}
                             </div>
-                            <span className="text-xs text-muted-foreground ml-1">
+                            <span className="text-xs text-muted-foreground">
                               ({item.ratingCount})
                             </span>
+                            {item.shopCapability && (
+                              <div className="flex items-center gap-1">
+                                <ShopCapabilityBadge
+                                  capability={item.shopCapability}
+                                  onClick={() => {
+                                    setSelectedCapability(item.shopCapability!);
+                                    setShowCapabilityDialog(true);
+                                  }}
+                                  className="text-xs"
+                                />
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedCapability(item.shopCapability!);
+                                          setShowCapabilityDialog(true);
+                                        }}
+                                        className="text-muted-foreground hover:text-foreground transition-colors"
+                                        aria-label="Learn more about shop capability"
+                                      >
+                                        <Info className="h-3 w-3" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">Click to learn how this shop operates</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                            )}
                           </div>
                           <Button
                             variant="ghost"
@@ -532,7 +587,7 @@ export default function CartPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <div className="flex flex-col items-center">
+                      <div className="flex flex-col items-center gap-1">
                         <span className="font-medium">
                           {formatPrice(item.price)}
                         </span>
@@ -542,10 +597,17 @@ export default function CartPage() {
                               {formatPrice(item.originalPrice)}
                             </span>
                           )}
-                        {item.hasDiscount && item.discountPercentage && (
-                          <Badge variant="destructive" className="text-xs mt-1">
-                            -{Math.round(item.discountPercentage)}% OFF
-                          </Badge>
+                        {item.hasDiscount && (
+                          <div className="flex flex-col items-center gap-0.5 mt-1">
+                            <Badge variant="destructive" className="text-xs">
+                              -{Math.round(item.discountPercentage || 0)}% OFF
+                            </Badge>
+                            {item.discountName && (
+                              <span className="text-xs text-green-600 font-medium">
+                                {item.discountName}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </TableCell>
@@ -687,7 +749,7 @@ export default function CartPage() {
                       >
                         {item.name}
                       </Link>
-                      <div className="flex items-center mt-1 mb-2">
+                      <div className="flex items-center gap-2 mt-1 mb-2 flex-wrap">
                         <div className="flex items-center">
                           {[...Array(5)].map((_, i) => (
                             <Star
@@ -700,13 +762,45 @@ export default function CartPage() {
                             />
                           ))}
                         </div>
-                        <span className="text-xs text-muted-foreground ml-1">
+                        <span className="text-xs text-muted-foreground">
                           ({item.ratingCount})
                         </span>
+                        {item.shopCapability && (
+                          <div className="flex items-center gap-1">
+                            <ShopCapabilityBadge
+                              capability={item.shopCapability}
+                              onClick={() => {
+                                setSelectedCapability(item.shopCapability!);
+                                setShowCapabilityDialog(true);
+                              }}
+                              className="text-xs"
+                            />
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedCapability(item.shopCapability!);
+                                      setShowCapabilityDialog(true);
+                                    }}
+                                    className="text-muted-foreground hover:text-foreground transition-colors"
+                                    aria-label="Learn more about shop capability"
+                                  >
+                                    <Info className="h-3 w-3" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">Click to learn how this shop operates</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between mt-auto">
-                        <div className="flex flex-col">
+                        <div className="flex flex-col gap-1">
                           <span className="font-medium">
                             {formatPrice(item.price)}
                           </span>
@@ -716,13 +810,20 @@ export default function CartPage() {
                                 {formatPrice(item.originalPrice)}
                               </span>
                             )}
-                          {item.hasDiscount && item.discountPercentage && (
-                            <Badge
-                              variant="destructive"
-                              className="text-xs mt-1 w-fit"
-                            >
-                              -{Math.round(item.discountPercentage)}% OFF
-                            </Badge>
+                          {item.hasDiscount && (
+                            <div className="flex flex-col gap-0.5">
+                              <Badge
+                                variant="destructive"
+                                className="text-xs w-fit"
+                              >
+                                -{Math.round(item.discountPercentage || 0)}% OFF
+                              </Badge>
+                              {item.discountName && (
+                                <span className="text-xs text-green-600 font-medium">
+                                  {item.discountName}
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
 
@@ -908,14 +1009,21 @@ export default function CartPage() {
                       .map((item, index) => (
                         <div
                           key={index}
-                          className="flex justify-between text-sm"
+                          className="flex flex-col gap-0.5 text-sm"
                         >
-                          <span className="text-muted-foreground">
-                            {item.name} ({item.discountName || "Discount"})
-                          </span>
-                          <span className="text-green-600 font-medium">
-                            -{formatPrice(calculateItemDiscount(item))}
-                          </span>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground font-medium">
+                              {item.name}
+                            </span>
+                            <span className="text-green-600 font-medium">
+                              -{formatPrice(calculateItemDiscount(item))}
+                            </span>
+                          </div>
+                          {item.discountName && (
+                            <span className="text-xs text-green-600">
+                              {item.discountName} ({Math.round(item.discountPercentage || 0)}% off)
+                            </span>
+                          )}
                         </div>
                       ))}
                     <div className="flex justify-between text-sm font-medium text-green-600 border-t pt-2">
@@ -980,6 +1088,15 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      {/* Shop Capability Dialog */}
+      {selectedCapability && (
+        <ShopCapabilityDialog
+          open={showCapabilityDialog}
+          onOpenChange={setShowCapabilityDialog}
+          capability={selectedCapability}
+        />
+      )}
     </div>
   );
 }

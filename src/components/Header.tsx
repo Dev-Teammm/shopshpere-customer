@@ -136,9 +136,16 @@ const Header = () => {
       <div className="container mx-auto px-4">
         <div className="hidden sm:flex items-center justify-between py-2 text-sm border-b">
           <div className="flex items-center gap-4">
-            <span className="text-muted-foreground">
-              Free shipping on orders over $60
-            </span>
+            <Link 
+              href={process.env.NODE_ENV === 'production' 
+                ? 'https://shopsphere-adm.vercel.app/' 
+                : 'http://localhost:3001'}
+              className="text-muted-foreground hover:text-primary transition-colors font-medium"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Create Your Own Shop
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             <DeliveryStatus />

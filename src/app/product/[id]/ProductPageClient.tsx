@@ -20,6 +20,7 @@ import {
   Loader2,
   Heart,
   AlertCircle,
+  Info,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ProductCard from "@/components/ProductCard";
@@ -37,6 +38,13 @@ import { triggerCartUpdate } from "@/lib/utils/cartUtils";
 import VariantSelectionModal from "@/components/VariantSelectionModal";
 import SimilarProducts from "@/components/SimilarProducts";
 import ReviewSection from "@/components/ReviewSection";
+import { ShopCapabilityBadge, ShopCapabilityDialog } from "@/components/ShopCapabilityDialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Define a proper review interface
 interface ProductReview {
@@ -67,6 +75,7 @@ export function ProductPageClient({ productId }: { productId: string }) {
   const [isCartLoading, setIsCartLoading] = useState(false);
   const [isWishlistLoading, setIsWishlistLoading] = useState(false);
   const [showVariantModal, setShowVariantModal] = useState(false);
+  const [showCapabilityDialog, setShowCapabilityDialog] = useState(false);
 
   // Image zoom states
   const [isZooming, setIsZooming] = useState(false);
@@ -336,6 +345,17 @@ export function ProductPageClient({ productId }: { productId: string }) {
 
   // Handle adding to cart
   const handleCartToggle = async () => {
+    // Validate shop capability before attempting to add to cart
+    if (product?.shopCapability === "VISUALIZATION_ONLY") {
+      toast({
+        title: "Cannot Add to Cart",
+        description: "This product is from a shop that only displays products and does not accept orders. Please contact the shop directly for inquiries.",
+        variant: "destructive",
+        duration: 6000,
+      });
+      return;
+    }
+
     if (isInCart) {
       // Remove from cart
       try {
@@ -421,6 +441,17 @@ export function ProductPageClient({ productId }: { productId: string }) {
 
   // Handle adding to cart (for both products and variants)
   const handleAddToCart = async (request: CartItemRequest) => {
+    // Validate shop capability before adding to cart
+    if (product?.shopCapability === "VISUALIZATION_ONLY") {
+      toast({
+        title: "Cannot Add to Cart",
+        description: "This product is from a shop that only displays products and does not accept orders. Please contact the shop directly for inquiries.",
+        variant: "destructive",
+        duration: 6000,
+      });
+      return;
+    }
+
     try {
       setIsCartLoading(true);
       await CartService.addItemToCart(request);
@@ -1167,24 +1198,102 @@ export function ProductPageClient({ productId }: { productId: string }) {
                 </div>
               </div>
 
+              {/* Shop Capability Info */}
+              {product?.shopCapability && (
+                <div className="pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Shop Type:</span>
+                    <ShopCapabilityBadge
+                      capability={product.shopCapability}
+                      onClick={() => setShowCapabilityDialog(true)}
+                    />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => setShowCapabilityDialog(true)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            aria-label="Learn more about shop capability"
+                          >
+                            <Info className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Click to learn how this shop operates</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+              )}
+
+              {/* Shop Information */}
+              {product?.shopId && (
+                <div className="pt-4 border-t">
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      {product.shopLogoUrl && (
+                        <div className="flex-shrink-0">
+                          <img
+                            src={product.shopLogoUrl}
+                            alt={product.shopName || "Shop logo"}
+                            className="w-16 h-16 rounded-lg object-cover border"
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-lg mb-1">
+                          {product.shopName || "Shop"}
+                        </h3>
+                        {product.shopEmail && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            <span>📧</span>
+                            <span>{product.shopEmail}</span>
+                          </p>
+                        )}
+                        {product.shopPhone && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            <span>📞</span>
+                            <span>{product.shopPhone}</span>
+                          </p>
+                        )}
+                        {product.shopAddress && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            <span>📍</span>
+                            <span>{product.shopAddress}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Link href={`/stores/${product.shopId}`}>
+                      <Button variant="outline" className="w-full">
+                        Visit Shop
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <Button
-                  size="lg"
-                  className={`flex-1 h-12 sm:h-10 ${
-                    isInCart ? "bg-success hover:bg-success/90" : ""
-                  }`}
-                  onClick={handleCartToggle}
-                  disabled={
-                    (displayStock || 0) === 0 ||
-                    isCartLoading ||
-                    (product &&
-                      ProductService.hasVariants(product) &&
-                      !selectedVariant) ||
-                    (selectedVariant &&
-                      ProductService.getVariantTotalStock(selectedVariant) === 0)
-                  }
-                >
+                {product && product.shopCapability !== "VISUALIZATION_ONLY" && (
+                  <Button
+                    size="lg"
+                    className={`flex-1 h-12 sm:h-10 ${
+                      isInCart ? "bg-success hover:bg-success/90" : ""
+                    }`}
+                    onClick={handleCartToggle}
+                    disabled={
+                      (displayStock || 0) === 0 ||
+                      isCartLoading ||
+                      (product &&
+                        ProductService.hasVariants(product) &&
+                        !selectedVariant) ||
+                      (selectedVariant &&
+                        ProductService.getVariantTotalStock(selectedVariant) === 0)
+                    }
+                  >
                   {isCartLoading ? (
                     <>
                       <Loader2 className="h-5 w-5 mr-2 animate-spin" />
@@ -1218,7 +1327,8 @@ export function ProductPageClient({ productId }: { productId: string }) {
                         : "Add to Cart"}
                     </>
                   )}
-                </Button>
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="icon"
@@ -1413,6 +1523,15 @@ export function ProductPageClient({ productId }: { productId: string }) {
           isOpen={showVariantModal}
           onClose={() => setShowVariantModal(false)}
           onAddToCart={handleAddToCart}
+        />
+      )}
+
+      {/* Shop Capability Dialog */}
+      {product?.shopCapability && (
+        <ShopCapabilityDialog
+          open={showCapabilityDialog}
+          onOpenChange={setShowCapabilityDialog}
+          capability={product.shopCapability}
         />
       )}
     </div>

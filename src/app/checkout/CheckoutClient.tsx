@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Coins, CreditCard, LockIcon, Loader2, MapPin } from "lucide-react";
+import { ArrowLeft, Coins, CreditCard, LockIcon, Loader2, MapPin, Package, Truck } from "lucide-react";
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -34,8 +34,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { PaymentIcons } from "@/components/PaymentIcons";
+import { ErrorDialog } from "@/components/ErrorDialog";
+import { toast } from "sonner";
 // Google Maps removed - using mock location data
 import { CountrySelector } from "@/components/CountrySelector";
 import { PointsPaymentModal } from "@/components/PointsPaymentModal";
@@ -89,6 +91,26 @@ export function CheckoutClient() {
     useState<PaymentSummaryDTO | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [showPointsModal, setShowPointsModal] = useState(false);
+  
+  // Error dialog state
+  const [errorDialog, setErrorDialog] = useState<{
+    open: boolean;
+    title?: string;
+    message: string;
+  }>({
+    open: false,
+    message: "",
+  });
+  
+  // Shop fulfillment preferences (for HYBRID shops)
+  const [shopFulfillmentPreferences, setShopFulfillmentPreferences] = useState<
+    Map<string, "PICKUP" | "DELIVERY">
+  >(new Map());
+  
+  // Track which shops need fulfillment choice
+  const [shopsRequiringChoice, setShopsRequiringChoice] = useState<
+    Array<{ shopId: string; shopName: string; capability: string }>
+  >([]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -149,7 +171,11 @@ export function CheckoutClient() {
 
         // Check if cart is empty
         if (!cartData || cartData.items.length === 0) {
-          toast.error("Your cart is empty. Add some products before checkout.");
+          setErrorDialog({
+            open: true,
+            title: "Empty Cart",
+            message: "Your cart is empty. Add some products before checkout.",
+          });
           setTimeout(() => {
             router.push("/shop");
           }, 2000);
@@ -166,10 +192,21 @@ export function CheckoutClient() {
           }));
         }
 
+        // Detect HYBRID shops from cart items
+        if (cartData && cartData.items) {
+          // Group items by shop (we'll need to fetch shop info or use payment summary)
+          // For now, we'll detect from payment summary response
+          // But we can also check cart items if they have shopId
+        }
+
         // Countries are loaded by CountrySelector component internally
       } catch (error) {
         console.error("Error loading checkout data:", error);
-        toast.error("Error loading checkout data. Please try again later.");
+        setErrorDialog({
+          open: true,
+          title: "Error Loading Data",
+          message: "Error loading checkout data. Please try again later.",
+        });
       } finally {
         setLoading(false);
       }
@@ -197,7 +234,40 @@ export function CheckoutClient() {
     cart,
     isAuthenticated,
     user,
+    shopFulfillmentPreferences, // Re-fetch when preferences change
   ]);
+  
+  // Auto-detect HYBRID shops from payment summary response (fallback detection)
+  useEffect(() => {
+    if (paymentSummary && paymentSummary.shopSummaries) {
+      console.log("Auto-detecting HYBRID shops from payment summary (useEffect)");
+      const hybridShops = paymentSummary.shopSummaries.filter(
+        (shop) => {
+          const isHybrid = shop.shopCapability === "HYBRID";
+          const requiresChoice = shop.requiresFulfillmentChoice === true;
+          const hasNoFulfillmentType = !shop.fulfillmentType || shop.fulfillmentType === null;
+          const hasPreference = shopFulfillmentPreferences.has(shop.shopId);
+          
+          // Use same logic as in fetchPaymentSummary
+          const shouldRequireChoice = isHybrid && (requiresChoice || (hasNoFulfillmentType && !hasPreference));
+          return shouldRequireChoice && !hasPreference;
+        }
+      );
+      console.log("Detected HYBRID shops requiring choice (useEffect):", hybridShops);
+      if (hybridShops.length > 0) {
+        setShopsRequiringChoice(
+          hybridShops.map((shop) => ({
+            shopId: shop.shopId,
+            shopName: shop.shopName,
+            capability: shop.shopCapability || "HYBRID",
+          }))
+        );
+      } else {
+        // Clear if all shops have preferences
+        setShopsRequiringChoice([]);
+      }
+    }
+  }, [paymentSummary, shopFulfillmentPreferences]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -248,6 +318,22 @@ export function CheckoutClient() {
         hasCountry: !!formData.country,
       });
       return;
+    }
+    
+    // Check if there are HYBRID shops that need fulfillment choice
+    // This will be populated after first payment summary call if needed
+    if (shopsRequiringChoice.length > 0) {
+      const missingChoices = shopsRequiringChoice.filter(
+        (shop) => !shopFulfillmentPreferences.has(shop.shopId)
+      );
+      if (missingChoices.length > 0) {
+        setErrorDialog({
+          open: true,
+          title: "Delivery Method Required",
+          message: `Please select delivery method for ${missingChoices.length} shop(s) before calculating totals.`,
+        });
+        return;
+      }
     }
 
     console.log("Fetching payment summary for address:", {
@@ -335,32 +421,115 @@ export function CheckoutClient() {
         userId: isAuthenticated && user ? user.id : undefined,
       });
 
+      // Convert shopFulfillmentPreferences Map to array format
+      const preferencesArray = Array.from(shopFulfillmentPreferences.entries()).map(
+        ([shopId, fulfillmentType]) => ({
+          shopId,
+          fulfillmentType,
+        })
+      );
+
       const summary = await checkoutService.getPaymentSummary({
         deliveryAddress: address,
         items: cartItems,
         orderValue: cart.subtotal,
         userId: isAuthenticated && user ? user.id : undefined,
+        shopFulfillmentPreferences: preferencesArray.length > 0 ? preferencesArray : undefined,
       });
 
       console.log("Payment summary received:", summary);
       setPaymentSummary(summary);
+      
+      // Update shops requiring choice based on response
+      if (summary.shopSummaries) {
+        console.log("Payment summary shop summaries:", summary.shopSummaries);
+        console.log("Current shop fulfillment preferences:", Array.from(shopFulfillmentPreferences.entries()));
+        
+        const hybridShops = summary.shopSummaries.filter(
+          (shop) => {
+            // Check if shop is HYBRID and either:
+            // 1. requiresFulfillmentChoice is explicitly true, OR
+            // 2. shopCapability is HYBRID and no fulfillmentType is set (fallback detection)
+            const isHybrid = shop.shopCapability === "HYBRID";
+            const requiresChoice = shop.requiresFulfillmentChoice === true;
+            const hasNoFulfillmentType = !shop.fulfillmentType || shop.fulfillmentType === null;
+            const hasPreference = shopFulfillmentPreferences.has(shop.shopId);
+            
+            const shouldRequireChoice = isHybrid && (requiresChoice || (hasNoFulfillmentType && !hasPreference));
+            
+            console.log(`Shop ${shop.shopName}: capability=${shop.shopCapability}, requiresFulfillmentChoice=${shop.requiresFulfillmentChoice}, fulfillmentType=${shop.fulfillmentType}, hasPreference=${hasPreference}, shouldRequireChoice=${shouldRequireChoice}`);
+            
+            return shouldRequireChoice && !hasPreference;
+          }
+        );
+        
+        console.log("HYBRID shops requiring choice:", hybridShops);
+        
+        if (hybridShops.length > 0) {
+          setShopsRequiringChoice(
+            hybridShops.map((shop) => ({
+              shopId: shop.shopId,
+              shopName: shop.shopName,
+              capability: shop.shopCapability || "HYBRID",
+            }))
+          );
+          
+          // Show a message (info messages can use toast, errors use dialog)
+          toast.info(
+            `Please select delivery method for ${hybridShops.length} shop(s) below.`,
+            { duration: 6000 }
+          );
+        } else {
+          // Clear if all shops have preferences
+          setShopsRequiringChoice([]);
+        }
+      }
     } catch (error: any) {
       console.error("Error fetching payment summary:", error);
       
       const errorDetails = extractErrorDetails(error);
+      
+      // Check for shop capability errors
+      const errorMessage = errorDetails.message || error?.response?.data?.message || error?.message || "";
+      if (errorMessage.toLowerCase().includes("visualization") || 
+          errorMessage.toLowerCase().includes("does not accept orders") ||
+          errorMessage.toLowerCase().includes("only displays products")) {
+        setErrorDialog({
+          open: true,
+          title: "Cannot Proceed to Checkout",
+          message: "Cannot proceed to checkout. Some items in your cart are from shops that only display products and do not accept orders. Please remove these items from your cart.",
+        });
+        // Redirect to cart page
+        setTimeout(() => router.push("/cart"), 3000);
+        return;
+      }
+      
+      // Check for HYBRID shop fulfillment preference errors
+      if (errorMessage.toLowerCase().includes("hybrid") && 
+          (errorMessage.toLowerCase().includes("specify") || 
+           errorMessage.toLowerCase().includes("please specify") ||
+           errorMessage.toLowerCase().includes("pickup") && errorMessage.toLowerCase().includes("delivered"))) {
+        // Extract shop name from error message if possible
+        const shopMatch = errorMessage.match(/Shop '([^']+)'/);
+        const shopName = shopMatch ? shopMatch[1] : "a shop";
+        
+        setErrorDialog({
+          open: true,
+          title: "Delivery Method Required",
+          message: `${shopName} is a HYBRID shop. Please select whether you want to pick up at the shop or have it delivered.`,
+        });
+        // Don't return - let the UI show the fulfillment selection
+      }
       
       // Check for road validation errors
       if (errorDetails.errorCode === "VALIDATION_ERROR" && 
           (errorDetails.message?.includes("road") || errorDetails.details?.includes("road") ||
            errorDetails.message?.includes("pickup point") || errorDetails.details?.includes("pickup point"))) {
         const roadMessage = errorDetails.message || errorDetails.details || "Please select a pickup point on or near a road.";
-        toast.error(roadMessage, {
-          duration: 10000,
-          style: {
-            backgroundColor: '#fef2f2',
-            borderColor: '#fecaca',
-            color: '#991b1b',
-          },
+        setErrorDialog({
+          open: true,
+          title: "Invalid Address",
+          message: roadMessage,
         });
         // Clear the address to force user to select a different location
         setAddressSelected(false);
@@ -375,13 +544,10 @@ export function CheckoutClient() {
       else if (errorDetails.errorCode === "VALIDATION_ERROR" && 
           (errorDetails.message?.includes("don't deliver to") || errorDetails.details?.includes("don't deliver to"))) {
         const countryMessage = errorDetails.message || errorDetails.details || "We don't deliver to this country.";
-        toast.error(countryMessage, {
-          duration: 10000,
-          style: {
-            backgroundColor: '#fef2f2',
-            borderColor: '#fecaca',
-            color: '#991b1b',
-          },
+        setErrorDialog({
+          open: true,
+          title: "Delivery Not Available",
+          message: countryMessage,
         });
         // Clear the address selection to force user to select a different address
         setAddressSelected(false);
@@ -398,18 +564,24 @@ export function CheckoutClient() {
       // Check if this is a stock-related error
       else if (errorDetails.details && (errorDetails.details.includes("not available") || errorDetails.details.includes("out of stock"))) {
         const stockMessage = formatStockErrorMessage(errorDetails.details);
-        toast.error(stockMessage, {
-          duration: 8000,
+        setErrorDialog({
+          open: true,
+          title: "Stock Unavailable",
+          message: stockMessage,
         });
       } else if (errorDetails.message && (errorDetails.message.includes("not available") || errorDetails.message.includes("out of stock"))) {
         const stockMessage = formatStockErrorMessage(errorDetails.message);
-        toast.error(stockMessage, {
-          duration: 8000,
+        setErrorDialog({
+          open: true,
+          title: "Stock Unavailable",
+          message: stockMessage,
         });
       } else {
-        toast.error(
-          errorDetails.message || "Error calculating shipping and taxes. Please check your address and try again."
-        );
+        setErrorDialog({
+          open: true,
+          title: "Calculation Error",
+          message: errorDetails.message || "Error calculating shipping and taxes. Please check your address and try again.",
+        });
       }
       setPaymentSummary(null);
     } finally {
@@ -486,9 +658,11 @@ export function CheckoutClient() {
 
       // Validate that we have valid cart items
       if (cartItems.length === 0) {
-        toast.error(
-          "No valid items found in cart. Please refresh and try again."
-        );
+        setErrorDialog({
+          open: true,
+          title: "Invalid Cart",
+          message: "No valid items found in cart. Please refresh and try again.",
+        });
         setSubmitting(false);
         return;
       }
@@ -520,6 +694,14 @@ export function CheckoutClient() {
         user: user ? { id: user.id, email: user.email } : null,
       });
 
+      // Convert shopFulfillmentPreferences Map to array format
+      const preferencesArray = Array.from(shopFulfillmentPreferences.entries()).map(
+        ([shopId, fulfillmentType]) => ({
+          shopId,
+          fulfillmentType,
+        })
+      );
+
       if (isAuthenticated && user) {
         // Authenticated user checkout
         const checkoutRequest: CheckoutRequest = {
@@ -528,6 +710,7 @@ export function CheckoutClient() {
           currency: "usd",
           userId: user.id,
           platform: "web",
+          shopFulfillmentPreferences: preferencesArray.length > 0 ? preferencesArray : undefined,
         };
 
         const response = await OrderService.createCheckoutSession(
@@ -544,6 +727,7 @@ export function CheckoutClient() {
           address: address,
           items: cartItems,
           platform: "web",
+          shopFulfillmentPreferences: preferencesArray.length > 0 ? preferencesArray : undefined,
         };
 
         console.log("Sending guest checkout request:", guestCheckoutRequest);
@@ -576,13 +760,10 @@ export function CheckoutClient() {
             // Handle country validation errors
             if (errorDetails.message?.includes("don't deliver to") || errorDetails.details?.includes("don't deliver to")) {
               const countryMessage = errorDetails.message || errorDetails.details || "We don't deliver to this country.";
-              toast.error(countryMessage, {
-                duration: 10000, // Longer duration for important country validation messages
-                style: {
-                  backgroundColor: '#fef2f2',
-                  borderColor: '#fecaca',
-                  color: '#991b1b',
-                },
+              setErrorDialog({
+                open: true,
+                title: "Delivery Not Available",
+                message: countryMessage,
               });
               // Clear the address selection to force user to select a different address
               setAddressSelected(false);
@@ -597,12 +778,20 @@ export function CheckoutClient() {
               }));
             } else {
               // Other validation errors
-              toast.error(errorDetails.message || errorDetails.details || "Please check your information and try again.");
+              setErrorDialog({
+                open: true,
+                title: "Validation Error",
+                message: errorDetails.message || errorDetails.details || "Please check your information and try again.",
+              });
             }
             break;
           case "PRODUCT_NOT_FOUND":
           case "VARIANT_NOT_FOUND":
-            toast.error("One or more products in your cart are no longer available. Please refresh and try again.");
+            setErrorDialog({
+              open: true,
+              title: "Product Not Found",
+              message: "One or more products in your cart are no longer available. Please refresh and try again.",
+            });
             break;
           case "PRODUCT_INACTIVE":
           case "PRODUCT_NOT_AVAILABLE":
@@ -611,22 +800,34 @@ export function CheckoutClient() {
             // Use the enhanced error parser for stock-related issues
             if (errorDetails.details || errorDetails.message) {
               const stockMessage = formatStockErrorMessage(errorDetails.details || errorDetails.message || "");
-              toast.error(stockMessage, {
-                duration: 8000, // Longer duration for important stock messages
+              setErrorDialog({
+                open: true,
+                title: "Product Unavailable",
+                message: stockMessage,
               });
             } else {
-              toast.error("Some products in your cart are no longer available for purchase. Please remove them and try again.");
+              setErrorDialog({
+                open: true,
+                title: "Product Unavailable",
+                message: "Some products in your cart are no longer available for purchase. Please remove them and try again.",
+              });
             }
             break;
           case "INSUFFICIENT_STOCK":
             // Enhanced stock error handling
             if (errorDetails.details || errorDetails.message) {
               const stockMessage = formatStockErrorMessage(errorDetails.details || errorDetails.message || "");
-              toast.error(stockMessage, {
-                duration: 8000,
+              setErrorDialog({
+                open: true,
+                title: "Insufficient Stock",
+                message: stockMessage,
               });
             } else {
-              toast.error("Insufficient stock for one or more items in your cart. Please review your cart and try again.");
+              setErrorDialog({
+                open: true,
+                title: "Insufficient Stock",
+                message: "Insufficient stock for one or more items in your cart. Please review your cart and try again.",
+              });
             }
             break;
           case "INTERNAL_ERROR":
@@ -639,19 +840,27 @@ export function CheckoutClient() {
               console.log("🔍 DEBUG: Stock error detected in details, formatting message...");
               const stockMessage = formatStockErrorMessage(errorDetails.details);
               console.log("🔍 DEBUG: Formatted stock message:", stockMessage);
-              toast.error(stockMessage, {
-                duration: 8000,
+              setErrorDialog({
+                open: true,
+                title: "Stock Error",
+                message: stockMessage,
               });
             } else if (errorDetails.message && (errorDetails.message.includes("not available") || errorDetails.message.includes("out of stock"))) {
               console.log("🔍 DEBUG: Stock error detected in message, formatting message...");
               const stockMessage = formatStockErrorMessage(errorDetails.message);
               console.log("🔍 DEBUG: Formatted stock message:", stockMessage);
-              toast.error(stockMessage, {
-                duration: 8000,
+              setErrorDialog({
+                open: true,
+                title: "Stock Error",
+                message: stockMessage,
               });
             } else {
               console.log("🔍 DEBUG: No stock error detected, showing generic message");
-              toast.error(errorDetails.message || "An unexpected error occurred while processing checkout. Please try again later.");
+              setErrorDialog({
+                open: true,
+                title: "Checkout Error",
+                message: errorDetails.message || "An unexpected error occurred while processing checkout. Please try again later.",
+              });
             }
             break;
           default:
@@ -661,11 +870,17 @@ export function CheckoutClient() {
                 (errorDetails.message && (errorDetails.message.includes("not available") || errorDetails.message.includes("out of stock")))) {
               console.log("🔍 DEBUG: Stock error detected in default case");
               const stockMessage = formatStockErrorMessage(errorDetails.details || errorDetails.message || "");
-              toast.error(stockMessage, {
-                duration: 8000,
+              setErrorDialog({
+                open: true,
+                title: "Checkout Error",
+                message: stockMessage,
               });
             } else {
-              toast.error(errorDetails.message || "Error processing checkout. Please try again later.");
+              setErrorDialog({
+                open: true,
+                title: "Checkout Error",
+                message: errorDetails.message || "Error processing checkout. Please try again later.",
+              });
             }
         }
       } else {
@@ -675,11 +890,17 @@ export function CheckoutClient() {
         if (errorMessage.includes("not available") || errorMessage.includes("out of stock")) {
           console.log("🔍 DEBUG: Stock error detected without error code");
           const stockMessage = formatStockErrorMessage(errorMessage);
-          toast.error(stockMessage, {
-            duration: 8000,
+          setErrorDialog({
+            open: true,
+            title: "Checkout Error",
+            message: stockMessage,
           });
         } else {
-          toast.error("Error processing checkout. Please try again later.");
+          setErrorDialog({
+            open: true,
+            title: "Checkout Error",
+            message: "Error processing checkout. Please try again later.",
+          });
         }
       }
     } finally {
@@ -689,17 +910,29 @@ export function CheckoutClient() {
 
   const handlePointsPayment = () => {
     if (!isAuthenticated || !user) {
-      toast.error("Please log in to use points payment");
+      setErrorDialog({
+        open: true,
+        title: "Authentication Required",
+        message: "Please log in to use points payment",
+      });
       return;
     }
 
     if (!cart || cart.items.length === 0) {
-      toast.error("Your cart is empty");
+      setErrorDialog({
+        open: true,
+        title: "Empty Cart",
+        message: "Your cart is empty",
+      });
       return;
     }
 
     if (!formData.streetAddress || !formData.city || !formData.country) {
-      toast.error("Please complete your shipping address first");
+      setErrorDialog({
+        open: true,
+        title: "Incomplete Address",
+        message: "Please complete your shipping address first",
+      });
       return;
     }
 
@@ -793,6 +1026,19 @@ export function CheckoutClient() {
         );
       }
     });
+    
+    // Validate HYBRID shop fulfillment preferences
+    if (shopsRequiringChoice.length > 0) {
+      const missingChoices = shopsRequiringChoice.filter(
+        (shop) => !shopFulfillmentPreferences.has(shop.shopId)
+      );
+      if (missingChoices.length > 0) {
+        isValid = false;
+        errors.push(
+          `Please select delivery method for ${missingChoices.length} shop(s): ${missingChoices.map(s => s.shopName).join(", ")}`
+        );
+      }
+    }
 
     // Email validation
     if (formData.email && !/^\S+@\S+\.\S+$/.test(formData.email)) {
@@ -830,16 +1076,12 @@ export function CheckoutClient() {
 
     // Show errors if any
     if (!isValid) {
-      toast.error(
-        <div>
-          <strong>Please fix the following errors:</strong>
-          <ul className="list-disc pl-4 mt-2">
-            {errors.map((err, i) => (
-              <li key={i}>{err}</li>
-            ))}
-          </ul>
-        </div>
-      );
+      const errorList = errors.map((err, i) => `${i + 1}. ${err}`).join("\n");
+      setErrorDialog({
+        open: true,
+        title: "Form Validation Error",
+        message: `Please fix the following errors:\n\n${errorList}`,
+      });
     }
 
     return isValid;
@@ -900,6 +1142,29 @@ export function CheckoutClient() {
         </Button>
         <h1 className="text-2xl md:text-3xl font-bold">Checkout</h1>
       </div>
+
+      {/* Alert Banner for HYBRID Shops Requiring Selection */}
+      {shopsRequiringChoice.length > 0 && (
+        <div className="mb-6 p-4 bg-orange-50 border-2 border-orange-300 rounded-lg">
+          <div className="flex items-start gap-3">
+            <Package className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-orange-900 mb-1">
+                Action Required: Choose Delivery Method
+              </h3>
+              <p className="text-sm text-orange-800 mb-2">
+                {shopsRequiringChoice.length === 1 
+                  ? `The shop "${shopsRequiringChoice[0].shopName}" offers both pickup and delivery options. Please select your preferred method below.`
+                  : `${shopsRequiringChoice.length} shops in your cart offer both pickup and delivery options. Please select your preferred method for each shop below.`
+                }
+              </p>
+              <p className="text-xs text-orange-700">
+                ⚠️ You must select a delivery method before you can proceed to payment.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Checkout Form */}
@@ -1022,9 +1287,36 @@ export function CheckoutClient() {
                     value={formData.country}
                     onChange={(value) => {
                       handleCountryChange(value);
+                      // Clear payment summary when country changes to force recalculation
+                      setPaymentSummary(null);
+                      setShopsRequiringChoice([]);
                       handleAddressInput();
                     }}
                   />
+                  {paymentSummary && paymentSummary.shopSummaries && (
+                    <div className="mt-2 space-y-1">
+                      {paymentSummary.shopSummaries.map((shop) => (
+                        <div key={shop.shopId} className="text-xs">
+                          {shop.selectedWarehouseCountry === formData.country ? (
+                            <span className="text-green-600 flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {shop.shopName}: Warehouse available in {formData.country}
+                            </span>
+                          ) : shop.fulfillmentType === "PICKUP" ? (
+                            <span className="text-blue-600 flex items-center gap-1">
+                              <Package className="h-3 w-3" />
+                              {shop.shopName}: Pickup available
+                            </span>
+                          ) : (
+                            <span className="text-orange-600 flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {shop.shopName}: Checking warehouse availability...
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 {addressSelected && (formData.latitude && formData.longitude) && (
@@ -1059,6 +1351,166 @@ export function CheckoutClient() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Fulfillment Selection for HYBRID Shops - PROMINENT DISPLAY */}
+          {shopsRequiringChoice.length > 0 && (
+            <Card className="overflow-hidden animate-slide-in-right card-animation-delay-2.5 border-2 border-blue-400 bg-gradient-to-br from-blue-50 to-blue-100/50 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-blue-200 to-blue-300 border-b-2 border-blue-400">
+                <CardTitle className="flex items-center gap-2 text-blue-900">
+                  <Package className="h-6 w-6 text-blue-700" />
+                  <span className="text-lg">Choose Delivery Method for HYBRID Shops</span>
+                </CardTitle>
+                <CardDescription className="text-blue-800 font-medium">
+                  {shopsRequiringChoice.length === 1 
+                    ? `"${shopsRequiringChoice[0].shopName}" offers both pickup and delivery. Select your preference:`
+                    : `${shopsRequiringChoice.length} shops offer both pickup and delivery. Select your preference for each:`
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                {shopsRequiringChoice.map((shop) => (
+                  <div key={shop.shopId} className="p-5 border-2 border-blue-300 rounded-xl bg-white shadow-md">
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-blue-200">
+                      <h4 className="font-bold text-base text-gray-900">{shop.shopName}</h4>
+                      <span className="px-2 py-1 bg-blue-200 text-blue-800 text-xs font-semibold rounded">
+                        HYBRID SHOP
+                      </span>
+                    </div>
+                    <div className="space-y-4">
+                      {/* Pickup Option */}
+                      <div 
+                        onClick={() => {
+                          const newPrefs = new Map(shopFulfillmentPreferences);
+                          newPrefs.set(shop.shopId, "PICKUP");
+                          setShopFulfillmentPreferences(newPrefs);
+                          setPaymentSummary(null);
+                          setTimeout(() => {
+                            if (formData.streetAddress && formData.city && formData.country) {
+                              fetchPaymentSummary();
+                            }
+                          }, 300);
+                        }}
+                        className={`flex items-start space-x-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          shopFulfillmentPreferences.get(shop.shopId) === "PICKUP"
+                            ? "border-blue-500 bg-blue-50 shadow-md"
+                            : "border-gray-300 bg-gray-50 hover:border-blue-300 hover:bg-blue-50/50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          id={`pickup-${shop.shopId}`}
+                          name={`fulfillment-${shop.shopId}`}
+                          value="PICKUP"
+                          checked={shopFulfillmentPreferences.get(shop.shopId) === "PICKUP"}
+                          onChange={() => {
+                            const newPrefs = new Map(shopFulfillmentPreferences);
+                            newPrefs.set(shop.shopId, "PICKUP");
+                            setShopFulfillmentPreferences(newPrefs);
+                            setPaymentSummary(null);
+                            setTimeout(() => {
+                              if (formData.streetAddress && formData.city && formData.country) {
+                                fetchPaymentSummary();
+                              }
+                            }, 300);
+                          }}
+                          className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor={`pickup-${shop.shopId}`} className="flex-1 cursor-pointer">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Package className="h-5 w-5 text-blue-600" />
+                            <span className="font-bold text-base text-gray-900">Pickup at Shop</span>
+                            {shopFulfillmentPreferences.get(shop.shopId) === "PICKUP" && (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded">
+                                SELECTED
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-700 ml-8">
+                            Visit the shop location to collect your order in person. A small packaging fee may apply.
+                          </p>
+                          <p className="text-xs text-gray-500 ml-8 mt-1">
+                            ✓ No shipping costs • ✓ Quick pickup • ✓ Packaging fee applies
+                          </p>
+                        </label>
+                      </div>
+                      
+                      {/* Delivery Option */}
+                      <div 
+                        onClick={() => {
+                          const newPrefs = new Map(shopFulfillmentPreferences);
+                          newPrefs.set(shop.shopId, "DELIVERY");
+                          setShopFulfillmentPreferences(newPrefs);
+                          setPaymentSummary(null);
+                          setTimeout(() => {
+                            if (formData.streetAddress && formData.city && formData.country) {
+                              fetchPaymentSummary();
+                            }
+                          }, 300);
+                        }}
+                        className={`flex items-start space-x-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          shopFulfillmentPreferences.get(shop.shopId) === "DELIVERY"
+                            ? "border-green-500 bg-green-50 shadow-md"
+                            : "border-gray-300 bg-gray-50 hover:border-green-300 hover:bg-green-50/50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          id={`delivery-${shop.shopId}`}
+                          name={`fulfillment-${shop.shopId}`}
+                          value="DELIVERY"
+                          checked={shopFulfillmentPreferences.get(shop.shopId) === "DELIVERY"}
+                          onChange={() => {
+                            const newPrefs = new Map(shopFulfillmentPreferences);
+                            newPrefs.set(shop.shopId, "DELIVERY");
+                            setShopFulfillmentPreferences(newPrefs);
+                            setPaymentSummary(null);
+                            setTimeout(() => {
+                              if (formData.streetAddress && formData.city && formData.country) {
+                                fetchPaymentSummary();
+                              }
+                            }, 300);
+                          }}
+                          className="mt-1 h-5 w-5 text-green-600 focus:ring-green-500"
+                        />
+                        <label htmlFor={`delivery-${shop.shopId}`} className="flex-1 cursor-pointer">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Truck className="h-5 w-5 text-green-600" />
+                            <span className="font-bold text-base text-gray-900">Home Delivery</span>
+                            {shopFulfillmentPreferences.get(shop.shopId) === "DELIVERY" && (
+                              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">
+                                SELECTED
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-700 ml-8">
+                            Have your order delivered directly to your address. Shipping costs will be calculated based on your location.
+                          </p>
+                          <p className="text-xs text-gray-500 ml-8 mt-1">
+                            ✓ Convenient delivery • ✓ Shipping costs apply • ✓ Delivered to your door
+                          </p>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="mt-6 p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-white text-xs font-bold">i</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900 mb-1">
+                        Important Information
+                      </p>
+                      <p className="text-xs text-blue-800">
+                        After selecting your preferred delivery method, the payment summary will automatically recalculate to show the correct costs (packaging fee for pickup or shipping costs for delivery).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="overflow-hidden animate-slide-in-right card-animation-delay-3">
             <CardHeader className="bg-muted">
@@ -1162,7 +1614,7 @@ export function CheckoutClient() {
                     formData.city &&
                     formData.country &&
                     !loadingSummary && (
-                      <span className="block text-orange-600 text-xs mt-1">
+                      <span className="block text-blue-600 text-xs mt-1">
                         ⚠️ Calculating shipping costs...
                       </span>
                     )}
@@ -1221,17 +1673,59 @@ export function CheckoutClient() {
                 <Separator />
 
                 <div className="space-y-4">
-                  {/* Shop Summaries */}
+                  {/* Shop Summaries - Scrollable */}
                   {paymentSummary && paymentSummary.shopSummaries && paymentSummary.shopSummaries.length > 0 ? (
-                    <div className="space-y-4">
-                      {paymentSummary.shopSummaries.map((shop, index) => (
+                    <ScrollArea className="max-h-[400px] w-full">
+                      <div className="space-y-4 pr-4">
+                        {paymentSummary.shopSummaries.map((shop, index) => (
                         <div key={shop.shopId} className="p-3 border rounded-lg bg-muted/30">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-semibold text-sm">{shop.shopName}</h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-sm">{shop.shopName}</h4>
+                              {shop.shopCapability && (
+                                <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                  shop.shopCapability === "PICKUP_ORDERS" 
+                                    ? "bg-blue-100 text-blue-700"
+                                    : shop.shopCapability === "FULL_ECOMMERCE"
+                                    ? "bg-green-100 text-green-700"
+                                    : shop.shopCapability === "HYBRID"
+                                    ? "bg-orange-100 text-orange-700"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}>
+                                  {shop.shopCapability === "PICKUP_ORDERS" && "Pickup Only"}
+                                  {shop.shopCapability === "FULL_ECOMMERCE" && "Full E-commerce"}
+                                  {shop.shopCapability === "HYBRID" && "Hybrid"}
+                                  {shop.shopCapability === "VISUALIZATION_ONLY" && "Display Only"}
+                                </span>
+                              )}
+                            </div>
                             <span className="text-xs text-muted-foreground">
                               {shop.productCount} {shop.productCount === 1 ? 'item' : 'items'}
                             </span>
                           </div>
+                          
+                          {/* Fulfillment Type Badge */}
+                          {shop.fulfillmentType && (
+                            <div className="mb-2">
+                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+                                shop.fulfillmentType === "PICKUP" 
+                                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                                  : "bg-green-100 text-green-700 border border-green-200"
+                              }`}>
+                                {shop.fulfillmentType === "PICKUP" ? (
+                                  <>
+                                    <Package className="h-3 w-3" />
+                                    Pickup at Shop
+                                  </>
+                                ) : (
+                                  <>
+                                    <Truck className="h-3 w-3" />
+                                    Home Delivery
+                                  </>
+                                )}
+                              </span>
+                            </div>
+                          )}
                           
                           <div className="space-y-1.5 text-sm">
                             <div className="flex justify-between">
@@ -1248,16 +1742,26 @@ export function CheckoutClient() {
                               </div>
                             )}
                             
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Shipping</span>
-                              <span className="font-medium">
-                                {shop.shippingCost === 0 ? (
-                                  <span className="text-blue-600">Free</span>
-                                ) : (
-                                  formatPrice(shop.shippingCost)
-                                )}
-                              </span>
-                            </div>
+                            {/* Show shipping for delivery, packaging fee for pickup */}
+                            {shop.fulfillmentType === "PICKUP" ? (
+                              shop.packagingFee && shop.packagingFee > 0 ? (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Packaging Fee</span>
+                                  <span className="font-medium">{formatPrice(shop.packagingFee)}</span>
+                                </div>
+                              ) : null
+                            ) : (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">Shipping</span>
+                                <span className="font-medium">
+                                  {shop.shippingCost === 0 ? (
+                                    <span className="text-blue-600">Free</span>
+                                  ) : (
+                                    formatPrice(shop.shippingCost)
+                                  )}
+                                </span>
+                              </div>
+                            )}
                             
                             {/* Shop-specific shipping details */}
                             {shop.distanceKm && shop.distanceKm > 0 && (
@@ -1307,8 +1811,9 @@ export function CheckoutClient() {
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
                   ) : (
                     /* Fallback to old display if no shop summaries */
                     <div className="space-y-2">
@@ -1406,6 +1911,22 @@ export function CheckoutClient() {
                           </span>
                         </div>
                       )}
+                      
+                      {/* Show total packaging fees if any */}
+                      {paymentSummary && paymentSummary.shopSummaries && (() => {
+                        const totalPackagingFee = paymentSummary.shopSummaries.reduce(
+                          (sum, shop) => sum + (shop.packagingFee || 0),
+                          0
+                        );
+                        return totalPackagingFee > 0 ? (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Packaging Fees</span>
+                            <span className="font-medium">
+                              {formatPrice(totalPackagingFee)}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
 
                       {paymentSummary && paymentSummary.rewardPoints > 0 && (
                         <div className="flex justify-between">
@@ -1468,7 +1989,8 @@ export function CheckoutClient() {
                       !formData.country.trim() ||
                       !formData.email.trim() ||
                       !formData.firstName.trim() ||
-                      !formData.lastName.trim()
+                      !formData.lastName.trim() ||
+                      shopsRequiringChoice.length > 0
                     }
                   >
                     <Coins className="h-4 w-4 mr-2" />
@@ -1489,7 +2011,8 @@ export function CheckoutClient() {
                     !formData.country.trim() ||
                     !formData.email.trim() ||
                     !formData.firstName.trim() ||
-                    !formData.lastName.trim()
+                    !formData.lastName.trim() ||
+                    shopsRequiringChoice.length > 0
                   }
                 >
                   {submitting ? (
@@ -1501,6 +2024,11 @@ export function CheckoutClient() {
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Calculating Total...
+                    </>
+                  ) : shopsRequiringChoice.length > 0 ? (
+                    <>
+                      <Package className="h-4 w-4 mr-2" />
+                      Select Delivery Method ({shopsRequiringChoice.length})
                     </>
                   ) : !formData.streetAddress ||
                     !formData.city ||
@@ -1594,6 +2122,14 @@ export function CheckoutClient() {
           },
           useAllAvailablePoints: true,
         }}
+      />
+      
+      {/* Error Dialog */}
+      <ErrorDialog
+        open={errorDialog.open}
+        onOpenChange={(open) => setErrorDialog({ ...errorDialog, open })}
+        title={errorDialog.title}
+        message={errorDialog.message}
       />
     </div>
   );

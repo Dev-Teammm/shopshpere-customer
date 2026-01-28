@@ -776,6 +776,7 @@ const ProductGrid = ({
                     discountEndDate={convertedProduct.discountEndDate}
                     shortDescription={convertedProduct.shortDescription}
                     isFeatured={convertedProduct.isFeatured}
+                    shopCapability={convertedProduct.shopCapability}
                   />
                 ) : (
                   <div className="relative border rounded-md overflow-hidden hover:border-primary/20 hover:shadow-lg transition-all duration-300 group">
@@ -917,35 +918,37 @@ const ProductGrid = ({
 
                           {/* Action Buttons */}
                           <div className="flex items-center gap-3 mt-auto">
-                            <Button
-                              size="sm"
-                              className={`flex-1 ${
-                                isInCart(convertedProduct.id)
-                                  ? "bg-green-600 hover:bg-green-700"
-                                  : ""
-                              }`}
-                              onClick={() =>
-                                handleCartToggle(convertedProduct.id)
-                              }
-                              disabled={loadingStates[convertedProduct.id]}
-                            >
-                              {loadingStates[convertedProduct.id] ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Loading...
-                                </>
-                              ) : isInCart(convertedProduct.id) ? (
-                                <>
-                                  <Check className="h-4 w-4 mr-2" />
-                                  Added to Cart
-                                </>
-                              ) : (
-                                <>
-                                  <ShoppingCart className="h-4 w-4 mr-2" />
-                                  Add to Cart
-                                </>
-                              )}
-                            </Button>
+                            {convertedProduct.shopCapability !== "VISUALIZATION_ONLY" && (
+                              <Button
+                                size="sm"
+                                className={`flex-1 ${
+                                  isInCart(convertedProduct.id)
+                                    ? "bg-green-600 hover:bg-green-700"
+                                    : ""
+                                }`}
+                                onClick={() =>
+                                  handleCartToggle(convertedProduct.id)
+                                }
+                                disabled={loadingStates[convertedProduct.id]}
+                              >
+                                {loadingStates[convertedProduct.id] ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Loading...
+                                  </>
+                                ) : isInCart(convertedProduct.id) ? (
+                                  <>
+                                    <Check className="h-4 w-4 mr-2" />
+                                    Added to Cart
+                                  </>
+                                ) : (
+                                  <>
+                                    <ShoppingCart className="h-4 w-4 mr-2" />
+                                    Add to Cart
+                                  </>
+                                )}
+                              </Button>
+                            )}
                             <Link
                               href={`/product/${convertedProduct.id}`}
                               className="flex-1"

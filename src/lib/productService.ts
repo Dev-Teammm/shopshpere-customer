@@ -74,6 +74,14 @@ export interface ProductDTO {
   warrantyInfo?: string;
   shippingInfo?: string;
   returnPolicy?: string;
+  shopCapability?: "VISUALIZATION_ONLY" | "PICKUP_ORDERS" | "FULL_ECOMMERCE" | "HYBRID";
+  // Shop information
+  shopId?: string;
+  shopName?: string;
+  shopLogoUrl?: string;
+  shopEmail?: string;
+  shopPhone?: string;
+  shopAddress?: string;
 }
 
 export interface ProductImageDTO {
@@ -223,6 +231,7 @@ export interface ManyProductsDto {
   averageRating?: number;
   reviewCount?: number;
   hasActiveDiscount: boolean;
+  shopCapability?: "VISUALIZATION_ONLY" | "PICKUP_ORDERS" | "FULL_ECOMMERCE" | "HYBRID";
 }
 
 export interface ProductSearchDTO {
@@ -634,6 +643,7 @@ export const ProductService = {
       isBestseller: product.isBestSeller === true,
       discountedPrice: discountedPrice,
       category: product.category?.name || undefined,
+      shopCapability: product.shopCapability,
       brand: product.brand?.brandName || undefined,
       hasActiveDiscount: hasActiveDiscount,
       discountName: product.discountInfo?.name || undefined,

@@ -58,12 +58,18 @@ export interface CreateOrderAddressRequest {
   phone: string;
 }
 
+export interface ShopFulfillmentPreference {
+  shopId: string;
+  fulfillmentType: "PICKUP" | "DELIVERY";
+}
+
 export interface CheckoutRequest {
   items: CartItemDTO[];
   shippingAddress: AddressDto;
   currency?: string;
   userId?: string;
   platform: string;
+  shopFulfillmentPreferences?: ShopFulfillmentPreference[];
 }
 
 export interface GuestCheckoutRequest {
@@ -74,6 +80,7 @@ export interface GuestCheckoutRequest {
   address: AddressDto;
   items: CartItemDTO[];
   platform: string;
+  shopFulfillmentPreferences?: ShopFulfillmentPreference[];
 }
 
 export interface CartItemDTO {
@@ -144,6 +151,8 @@ export interface ShopOrderResponse {
   items: any[];
   shippingCost: number;
   totalAmount: number;
+  shopCapability?: string; // VISUALIZATION_ONLY, PICKUP_ORDERS, FULL_ECOMMERCE, HYBRID
+  fulfillmentType?: string; // PICKUP, DELIVERY
 }
 
 export interface OrderResponse {
@@ -335,6 +344,8 @@ export interface ShopOrderGroup {
   shopName: string;
   shopLogo?: string;
   shopSlug: string;
+  shopCapability?: string; // VISUALIZATION_ONLY, PICKUP_ORDERS, FULL_ECOMMERCE, HYBRID
+  fulfillmentType?: string; // PICKUP, DELIVERY
   status: string;
   timeline: StatusTimeline[];
   items: OrderItemResponse[];

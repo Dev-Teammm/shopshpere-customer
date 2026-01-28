@@ -20,6 +20,9 @@ export interface CartItemResponse {
   discountName?: string;
   discountAmount?: number; // Amount saved due to discount
   hasDiscount?: boolean;
+  
+  // Shop capability
+  shopCapability?: "VISUALIZATION_ONLY" | "PICKUP_ORDERS" | "FULL_ECOMMERCE" | "HYBRID";
 }
 
 export interface CartResponse {
@@ -77,6 +80,13 @@ interface CartProductsResponse {
       attributeTypeName: string;
       attributeValue: string;
     }[];
+    // Discount information
+    discountPercentage?: number;
+    discountName?: string;
+    discountAmount?: number;
+    hasDiscount?: boolean;
+    // Shop capability
+    shopCapability?: "VISUALIZATION_ONLY" | "PICKUP_ORDERS" | "FULL_ECOMMERCE" | "HYBRID";
   }[];
   subtotal: number;
   totalItems: number;
@@ -155,6 +165,7 @@ export const CartService = {
             totalPrice: item.totalPrice || 0,
             averageRating: item.averageRating || 0,
             ratingCount: item.ratingCount || 0,
+            shopCapability: item.shopCapability || undefined,
           })) || [],
         totalItems: backendData.totalItems || 0,
         subtotal: backendData.subtotal || backendData.total || 0,
@@ -183,6 +194,30 @@ export const CartService = {
   addItemToCart: async (request: CartItemRequest): Promise<CartResponse> => {
     const token = getAuthToken();
     if (!token) {
+      // For guest users, validate product capability before adding to localStorage
+      // Fetch product data to check shop capability
+      try {
+        const productId = request.productId || request.variantId || "";
+        if (productId) {
+          const productResponse = await fetch(`${API_ENDPOINTS.PRODUCT_BY_ID(productId)}`);
+          if (productResponse.ok) {
+            const product = await productResponse.json();
+            if (product.shopCapability === "VISUALIZATION_ONLY") {
+              throw new Error(
+                "This product is from a shop that only displays products and does not accept orders. Please contact the shop directly for inquiries."
+              );
+            }
+          }
+        }
+      } catch (error: any) {
+        // Re-throw validation errors
+        if (error.message && error.message.includes("VISUALIZATION_ONLY")) {
+          throw error;
+        }
+        // For other errors (network, etc.), log but continue (backend will validate)
+        console.warn("Could not validate product capability for guest user:", error);
+      }
+      
       addToLocalStorageCart(
         request.productId || request.variantId || "",
         request.variantId,
@@ -622,9 +657,13 @@ async function getCartFromBackend(): Promise<CartResponse> {
       items: cartData.items.map((item) => {
         const originalPrice = item.previousPrice || item.price;
         const currentPrice = item.price;
-        const hasDiscount = item.previousPrice && item.previousPrice > item.price;
-        const discountAmount = hasDiscount ? (originalPrice - currentPrice) * item.quantity : 0;
-        const discountPercentage = hasDiscount ? ((originalPrice - currentPrice) / originalPrice) * 100 : 0;
+        // Use backend discount info if available, otherwise calculate
+        const hasDiscount = item.hasDiscount ?? (item.previousPrice && item.previousPrice > item.price);
+        const discountAmount = item.discountAmount ?? (hasDiscount ? (originalPrice - currentPrice) * item.quantity : 0);
+        const discountPercentage = item.discountPercentage 
+          ? Number(item.discountPercentage) 
+          : (hasDiscount ? ((originalPrice - currentPrice) / originalPrice) * 100 : 0);
+        const discountName = item.discountName || (hasDiscount ? "Discount" : undefined);
         
         return {
           id: item.itemId,
@@ -644,7 +683,9 @@ async function getCartFromBackend(): Promise<CartResponse> {
           hasDiscount: hasDiscount || false,
           discountAmount: discountAmount,
           discountPercentage: discountPercentage,
-          discountName: hasDiscount ? "Discount" : undefined,
+          discountName: discountName,
+          // Shop capability
+          shopCapability: item.shopCapability || undefined,
         };
       }),
       totalItems: cartData.totalItems,
