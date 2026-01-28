@@ -151,6 +151,8 @@ export interface ShopOrderResponse {
   items: any[];
   shippingCost: number;
   totalAmount: number;
+  shopCapability?: string; // VISUALIZATION_ONLY, PICKUP_ORDERS, FULL_ECOMMERCE, HYBRID
+  fulfillmentType?: string; // PICKUP, DELIVERY
 }
 
 export interface OrderResponse {
@@ -342,6 +344,8 @@ export interface ShopOrderGroup {
   shopName: string;
   shopLogo?: string;
   shopSlug: string;
+  shopCapability?: string; // VISUALIZATION_ONLY, PICKUP_ORDERS, FULL_ECOMMERCE, HYBRID
+  fulfillmentType?: string; // PICKUP, DELIVERY
   status: string;
   timeline: StatusTimeline[];
   items: OrderItemResponse[];

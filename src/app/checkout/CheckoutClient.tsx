@@ -34,8 +34,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { PaymentIcons } from "@/components/PaymentIcons";
+import { ErrorDialog } from "@/components/ErrorDialog";
+import { toast } from "sonner";
 // Google Maps removed - using mock location data
 import { CountrySelector } from "@/components/CountrySelector";
 import { PointsPaymentModal } from "@/components/PointsPaymentModal";
@@ -89,6 +91,16 @@ export function CheckoutClient() {
     useState<PaymentSummaryDTO | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [showPointsModal, setShowPointsModal] = useState(false);
+  
+  // Error dialog state
+  const [errorDialog, setErrorDialog] = useState<{
+    open: boolean;
+    title?: string;
+    message: string;
+  }>({
+    open: false,
+    message: "",
+  });
   
   // Shop fulfillment preferences (for HYBRID shops)
   const [shopFulfillmentPreferences, setShopFulfillmentPreferences] = useState<
@@ -159,7 +171,11 @@ export function CheckoutClient() {
 
         // Check if cart is empty
         if (!cartData || cartData.items.length === 0) {
-          toast.error("Your cart is empty. Add some products before checkout.");
+          setErrorDialog({
+            open: true,
+            title: "Empty Cart",
+            message: "Your cart is empty. Add some products before checkout.",
+          });
           setTimeout(() => {
             router.push("/shop");
           }, 2000);
@@ -186,7 +202,11 @@ export function CheckoutClient() {
         // Countries are loaded by CountrySelector component internally
       } catch (error) {
         console.error("Error loading checkout data:", error);
-        toast.error("Error loading checkout data. Please try again later.");
+        setErrorDialog({
+          open: true,
+          title: "Error Loading Data",
+          message: "Error loading checkout data. Please try again later.",
+        });
       } finally {
         setLoading(false);
       }
@@ -307,10 +327,11 @@ export function CheckoutClient() {
         (shop) => !shopFulfillmentPreferences.has(shop.shopId)
       );
       if (missingChoices.length > 0) {
-        toast.error(
-          `Please select delivery method for ${missingChoices.length} shop(s) before calculating totals.`,
-          { duration: 5000 }
-        );
+        setErrorDialog({
+          open: true,
+          title: "Delivery Method Required",
+          message: `Please select delivery method for ${missingChoices.length} shop(s) before calculating totals.`,
+        });
         return;
       }
     }
@@ -453,7 +474,7 @@ export function CheckoutClient() {
             }))
           );
           
-          // Show a message
+          // Show a message (info messages can use toast, errors use dialog)
           toast.info(
             `Please select delivery method for ${hybridShops.length} shop(s) below.`,
             { duration: 6000 }
@@ -473,12 +494,13 @@ export function CheckoutClient() {
       if (errorMessage.toLowerCase().includes("visualization") || 
           errorMessage.toLowerCase().includes("does not accept orders") ||
           errorMessage.toLowerCase().includes("only displays products")) {
-        toast.error(
-          "Cannot proceed to checkout. Some items in your cart are from shops that only display products and do not accept orders. Please remove these items from your cart.",
-          { duration: 8000 }
-        );
+        setErrorDialog({
+          open: true,
+          title: "Cannot Proceed to Checkout",
+          message: "Cannot proceed to checkout. Some items in your cart are from shops that only display products and do not accept orders. Please remove these items from your cart.",
+        });
         // Redirect to cart page
-        router.push("/cart");
+        setTimeout(() => router.push("/cart"), 3000);
         return;
       }
       
@@ -491,10 +513,11 @@ export function CheckoutClient() {
         const shopMatch = errorMessage.match(/Shop '([^']+)'/);
         const shopName = shopMatch ? shopMatch[1] : "a shop";
         
-        toast.error(
-          `${shopName} is a HYBRID shop. Please select whether you want to pick up at the shop or have it delivered.`,
-          { duration: 8000 }
-        );
+        setErrorDialog({
+          open: true,
+          title: "Delivery Method Required",
+          message: `${shopName} is a HYBRID shop. Please select whether you want to pick up at the shop or have it delivered.`,
+        });
         // Don't return - let the UI show the fulfillment selection
       }
       
@@ -503,13 +526,10 @@ export function CheckoutClient() {
           (errorDetails.message?.includes("road") || errorDetails.details?.includes("road") ||
            errorDetails.message?.includes("pickup point") || errorDetails.details?.includes("pickup point"))) {
         const roadMessage = errorDetails.message || errorDetails.details || "Please select a pickup point on or near a road.";
-        toast.error(roadMessage, {
-          duration: 10000,
-          style: {
-            backgroundColor: '#fef2f2',
-            borderColor: '#fecaca',
-            color: '#991b1b',
-          },
+        setErrorDialog({
+          open: true,
+          title: "Invalid Address",
+          message: roadMessage,
         });
         // Clear the address to force user to select a different location
         setAddressSelected(false);
@@ -524,13 +544,10 @@ export function CheckoutClient() {
       else if (errorDetails.errorCode === "VALIDATION_ERROR" && 
           (errorDetails.message?.includes("don't deliver to") || errorDetails.details?.includes("don't deliver to"))) {
         const countryMessage = errorDetails.message || errorDetails.details || "We don't deliver to this country.";
-        toast.error(countryMessage, {
-          duration: 10000,
-          style: {
-            backgroundColor: '#fef2f2',
-            borderColor: '#fecaca',
-            color: '#991b1b',
-          },
+        setErrorDialog({
+          open: true,
+          title: "Delivery Not Available",
+          message: countryMessage,
         });
         // Clear the address selection to force user to select a different address
         setAddressSelected(false);
@@ -547,18 +564,24 @@ export function CheckoutClient() {
       // Check if this is a stock-related error
       else if (errorDetails.details && (errorDetails.details.includes("not available") || errorDetails.details.includes("out of stock"))) {
         const stockMessage = formatStockErrorMessage(errorDetails.details);
-        toast.error(stockMessage, {
-          duration: 8000,
+        setErrorDialog({
+          open: true,
+          title: "Stock Unavailable",
+          message: stockMessage,
         });
       } else if (errorDetails.message && (errorDetails.message.includes("not available") || errorDetails.message.includes("out of stock"))) {
         const stockMessage = formatStockErrorMessage(errorDetails.message);
-        toast.error(stockMessage, {
-          duration: 8000,
+        setErrorDialog({
+          open: true,
+          title: "Stock Unavailable",
+          message: stockMessage,
         });
       } else {
-        toast.error(
-          errorDetails.message || "Error calculating shipping and taxes. Please check your address and try again."
-        );
+        setErrorDialog({
+          open: true,
+          title: "Calculation Error",
+          message: errorDetails.message || "Error calculating shipping and taxes. Please check your address and try again.",
+        });
       }
       setPaymentSummary(null);
     } finally {
@@ -635,9 +658,11 @@ export function CheckoutClient() {
 
       // Validate that we have valid cart items
       if (cartItems.length === 0) {
-        toast.error(
-          "No valid items found in cart. Please refresh and try again."
-        );
+        setErrorDialog({
+          open: true,
+          title: "Invalid Cart",
+          message: "No valid items found in cart. Please refresh and try again.",
+        });
         setSubmitting(false);
         return;
       }
@@ -735,13 +760,10 @@ export function CheckoutClient() {
             // Handle country validation errors
             if (errorDetails.message?.includes("don't deliver to") || errorDetails.details?.includes("don't deliver to")) {
               const countryMessage = errorDetails.message || errorDetails.details || "We don't deliver to this country.";
-              toast.error(countryMessage, {
-                duration: 10000, // Longer duration for important country validation messages
-                style: {
-                  backgroundColor: '#fef2f2',
-                  borderColor: '#fecaca',
-                  color: '#991b1b',
-                },
+              setErrorDialog({
+                open: true,
+                title: "Delivery Not Available",
+                message: countryMessage,
               });
               // Clear the address selection to force user to select a different address
               setAddressSelected(false);
@@ -756,12 +778,20 @@ export function CheckoutClient() {
               }));
             } else {
               // Other validation errors
-              toast.error(errorDetails.message || errorDetails.details || "Please check your information and try again.");
+              setErrorDialog({
+                open: true,
+                title: "Validation Error",
+                message: errorDetails.message || errorDetails.details || "Please check your information and try again.",
+              });
             }
             break;
           case "PRODUCT_NOT_FOUND":
           case "VARIANT_NOT_FOUND":
-            toast.error("One or more products in your cart are no longer available. Please refresh and try again.");
+            setErrorDialog({
+              open: true,
+              title: "Product Not Found",
+              message: "One or more products in your cart are no longer available. Please refresh and try again.",
+            });
             break;
           case "PRODUCT_INACTIVE":
           case "PRODUCT_NOT_AVAILABLE":
@@ -770,22 +800,34 @@ export function CheckoutClient() {
             // Use the enhanced error parser for stock-related issues
             if (errorDetails.details || errorDetails.message) {
               const stockMessage = formatStockErrorMessage(errorDetails.details || errorDetails.message || "");
-              toast.error(stockMessage, {
-                duration: 8000, // Longer duration for important stock messages
+              setErrorDialog({
+                open: true,
+                title: "Product Unavailable",
+                message: stockMessage,
               });
             } else {
-              toast.error("Some products in your cart are no longer available for purchase. Please remove them and try again.");
+              setErrorDialog({
+                open: true,
+                title: "Product Unavailable",
+                message: "Some products in your cart are no longer available for purchase. Please remove them and try again.",
+              });
             }
             break;
           case "INSUFFICIENT_STOCK":
             // Enhanced stock error handling
             if (errorDetails.details || errorDetails.message) {
               const stockMessage = formatStockErrorMessage(errorDetails.details || errorDetails.message || "");
-              toast.error(stockMessage, {
-                duration: 8000,
+              setErrorDialog({
+                open: true,
+                title: "Insufficient Stock",
+                message: stockMessage,
               });
             } else {
-              toast.error("Insufficient stock for one or more items in your cart. Please review your cart and try again.");
+              setErrorDialog({
+                open: true,
+                title: "Insufficient Stock",
+                message: "Insufficient stock for one or more items in your cart. Please review your cart and try again.",
+              });
             }
             break;
           case "INTERNAL_ERROR":
@@ -798,19 +840,27 @@ export function CheckoutClient() {
               console.log("🔍 DEBUG: Stock error detected in details, formatting message...");
               const stockMessage = formatStockErrorMessage(errorDetails.details);
               console.log("🔍 DEBUG: Formatted stock message:", stockMessage);
-              toast.error(stockMessage, {
-                duration: 8000,
+              setErrorDialog({
+                open: true,
+                title: "Stock Error",
+                message: stockMessage,
               });
             } else if (errorDetails.message && (errorDetails.message.includes("not available") || errorDetails.message.includes("out of stock"))) {
               console.log("🔍 DEBUG: Stock error detected in message, formatting message...");
               const stockMessage = formatStockErrorMessage(errorDetails.message);
               console.log("🔍 DEBUG: Formatted stock message:", stockMessage);
-              toast.error(stockMessage, {
-                duration: 8000,
+              setErrorDialog({
+                open: true,
+                title: "Stock Error",
+                message: stockMessage,
               });
             } else {
               console.log("🔍 DEBUG: No stock error detected, showing generic message");
-              toast.error(errorDetails.message || "An unexpected error occurred while processing checkout. Please try again later.");
+              setErrorDialog({
+                open: true,
+                title: "Checkout Error",
+                message: errorDetails.message || "An unexpected error occurred while processing checkout. Please try again later.",
+              });
             }
             break;
           default:
@@ -820,11 +870,17 @@ export function CheckoutClient() {
                 (errorDetails.message && (errorDetails.message.includes("not available") || errorDetails.message.includes("out of stock")))) {
               console.log("🔍 DEBUG: Stock error detected in default case");
               const stockMessage = formatStockErrorMessage(errorDetails.details || errorDetails.message || "");
-              toast.error(stockMessage, {
-                duration: 8000,
+              setErrorDialog({
+                open: true,
+                title: "Checkout Error",
+                message: stockMessage,
               });
             } else {
-              toast.error(errorDetails.message || "Error processing checkout. Please try again later.");
+              setErrorDialog({
+                open: true,
+                title: "Checkout Error",
+                message: errorDetails.message || "Error processing checkout. Please try again later.",
+              });
             }
         }
       } else {
@@ -834,11 +890,17 @@ export function CheckoutClient() {
         if (errorMessage.includes("not available") || errorMessage.includes("out of stock")) {
           console.log("🔍 DEBUG: Stock error detected without error code");
           const stockMessage = formatStockErrorMessage(errorMessage);
-          toast.error(stockMessage, {
-            duration: 8000,
+          setErrorDialog({
+            open: true,
+            title: "Checkout Error",
+            message: stockMessage,
           });
         } else {
-          toast.error("Error processing checkout. Please try again later.");
+          setErrorDialog({
+            open: true,
+            title: "Checkout Error",
+            message: "Error processing checkout. Please try again later.",
+          });
         }
       }
     } finally {
@@ -848,17 +910,29 @@ export function CheckoutClient() {
 
   const handlePointsPayment = () => {
     if (!isAuthenticated || !user) {
-      toast.error("Please log in to use points payment");
+      setErrorDialog({
+        open: true,
+        title: "Authentication Required",
+        message: "Please log in to use points payment",
+      });
       return;
     }
 
     if (!cart || cart.items.length === 0) {
-      toast.error("Your cart is empty");
+      setErrorDialog({
+        open: true,
+        title: "Empty Cart",
+        message: "Your cart is empty",
+      });
       return;
     }
 
     if (!formData.streetAddress || !formData.city || !formData.country) {
-      toast.error("Please complete your shipping address first");
+      setErrorDialog({
+        open: true,
+        title: "Incomplete Address",
+        message: "Please complete your shipping address first",
+      });
       return;
     }
 
@@ -1002,16 +1076,12 @@ export function CheckoutClient() {
 
     // Show errors if any
     if (!isValid) {
-      toast.error(
-        <div>
-          <strong>Please fix the following errors:</strong>
-          <ul className="list-disc pl-4 mt-2">
-            {errors.map((err, i) => (
-              <li key={i}>{err}</li>
-            ))}
-          </ul>
-        </div>
-      );
+      const errorList = errors.map((err, i) => `${i + 1}. ${err}`).join("\n");
+      setErrorDialog({
+        open: true,
+        title: "Form Validation Error",
+        message: `Please fix the following errors:\n\n${errorList}`,
+      });
     }
 
     return isValid;
@@ -1603,10 +1673,11 @@ export function CheckoutClient() {
                 <Separator />
 
                 <div className="space-y-4">
-                  {/* Shop Summaries */}
+                  {/* Shop Summaries - Scrollable */}
                   {paymentSummary && paymentSummary.shopSummaries && paymentSummary.shopSummaries.length > 0 ? (
-                    <div className="space-y-4">
-                      {paymentSummary.shopSummaries.map((shop, index) => (
+                    <ScrollArea className="max-h-[400px] w-full">
+                      <div className="space-y-4 pr-4">
+                        {paymentSummary.shopSummaries.map((shop, index) => (
                         <div key={shop.shopId} className="p-3 border rounded-lg bg-muted/30">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
@@ -1740,8 +1811,9 @@ export function CheckoutClient() {
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
                   ) : (
                     /* Fallback to old display if no shop summaries */
                     <div className="space-y-2">
@@ -2050,6 +2122,14 @@ export function CheckoutClient() {
           },
           useAllAvailablePoints: true,
         }}
+      />
+      
+      {/* Error Dialog */}
+      <ErrorDialog
+        open={errorDialog.open}
+        onOpenChange={(open) => setErrorDialog({ ...errorDialog, open })}
+        title={errorDialog.title}
+        message={errorDialog.message}
       />
     </div>
   );

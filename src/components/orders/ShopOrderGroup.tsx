@@ -105,6 +105,75 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
     }).format(amount);
   };
 
+  const getCapabilityBadge = (capability?: string) => {
+    console.log("Shop Capability", capability);
+    if (!capability) return null;
+    const badgeConfig: Record<string, { label: string; className: string }> = {
+      PICKUP_ORDERS: {
+        label: "Pickup Only",
+        className: "bg-blue-100 text-blue-700 border-blue-200",
+      },
+      FULL_ECOMMERCE: {
+        label: "Full E-commerce",
+        className: "bg-green-100 text-green-700 border-green-200",
+      },
+      HYBRID: {
+        label: "Hybrid",
+        className: "bg-orange-100 text-orange-700 border-orange-200",
+      },
+      VISUALIZATION_ONLY: {
+        label: "Display Only",
+        className: "bg-gray-100 text-gray-700 border-gray-200",
+      },
+    };
+
+    const config = badgeConfig[capability];
+    if (!config) return null;
+
+    return (
+      <Badge variant="outline" className={`text-xs ${config.className}`}>
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const getCapabilityDescription = (capability?: string, fulfillmentType?: string) => {
+    if (!capability) return null;
+
+    const descriptions: Record<string, string> = {
+      PICKUP_ORDERS: "This shop operates on a pickup-only basis. You'll need to collect your order from the shop location.",
+      FULL_ECOMMERCE: "This shop offers full e-commerce services with delivery to your address.",
+      HYBRID: fulfillmentType === "PICKUP"
+        ? "This shop offers both pickup and delivery. You've chosen to pick up your order from the shop."
+        : "This shop offers both pickup and delivery. Your order will be delivered to your address.",
+      VISUALIZATION_ONLY: "This shop is for display purposes only and does not accept orders.",
+    };
+
+    return descriptions[capability] || null;
+  };
+
+  const getFulfillmentBadge = (fulfillmentType?: string) => {
+    if (!fulfillmentType) return null;
+
+    if (fulfillmentType === "PICKUP") {
+      return (
+        <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700 border-purple-200">
+          <Package className="h-3 w-3 mr-1" />
+          Pickup
+        </Badge>
+      );
+    } else if (fulfillmentType === "DELIVERY") {
+      return (
+        <Badge variant="outline" className="text-xs bg-indigo-100 text-indigo-700 border-indigo-200">
+          <Truck className="h-3 w-3 mr-1" />
+          Delivery
+        </Badge>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="border rounded-xl overflow-hidden bg-white shadow-sm mb-6 transition-all duration-200 hover:shadow-md">
       {/* Header - Collapsible Toggle */}
@@ -125,9 +194,13 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
             </div>
           )}
           <div>
-            <h3 className="font-semibold text-lg text-slate-900">
-              {shopOrder.shopName}
-            </h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold text-lg text-slate-900">
+                {shopOrder.shopName}
+              </h3>
+              {getCapabilityBadge(shopOrder.shopCapability)}
+              {getFulfillmentBadge(shopOrder.fulfillmentType)}
+            </div>
             <p className="text-sm text-slate-500">
               Order #{shopOrder.shopOrderCode}
             </p>
@@ -157,6 +230,21 @@ export const ShopOrderGroup: React.FC<ShopOrderGroupProps> = ({
       {/* Foldable Content */}
       {isExpanded && (
         <div className="p-0 animate-in slide-in-from-top-2 duration-300 bg-white">
+          {/* Shop Capability Description */}
+          {shopOrder.shopCapability && getCapabilityDescription(shopOrder.shopCapability, shopOrder.fulfillmentType) && (
+            <div className="bg-blue-50/50 border-b border-blue-100 p-4">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-blue-900 mb-1">Shop Service Type</p>
+                  <p className="text-xs text-blue-700 leading-relaxed">
+                    {getCapabilityDescription(shopOrder.shopCapability, shopOrder.fulfillmentType)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Shop-Level Timeline (The USER specifically asked for this to be enclosed here) */}
           <div className="bg-slate-50 border-b p-6">
             <h4 className="font-semibold flex items-center gap-2 text-slate-800 mb-6 uppercase tracking-wider text-xs">
