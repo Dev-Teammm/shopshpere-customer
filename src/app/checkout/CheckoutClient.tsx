@@ -1284,13 +1284,13 @@ export function CheckoutClient() {
 
           {/* Fulfillment Selection for HYBRID Shops - PROMINENT DISPLAY */}
           {shopsRequiringChoice.length > 0 && (
-            <Card className="overflow-hidden animate-slide-in-right card-animation-delay-2.5 border-2 border-orange-400 bg-gradient-to-br from-orange-50 to-orange-100/50 shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-orange-200 to-orange-300 border-b-2 border-orange-400">
-                <CardTitle className="flex items-center gap-2 text-orange-900">
-                  <Package className="h-6 w-6 text-orange-700" />
+            <Card className="overflow-hidden animate-slide-in-right card-animation-delay-2.5 border-2 border-blue-400 bg-gradient-to-br from-blue-50 to-blue-100/50 shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-blue-200 to-blue-300 border-b-2 border-blue-400">
+                <CardTitle className="flex items-center gap-2 text-blue-900">
+                  <Package className="h-6 w-6 text-blue-700" />
                   <span className="text-lg">Choose Delivery Method for HYBRID Shops</span>
                 </CardTitle>
-                <CardDescription className="text-orange-800 font-medium">
+                <CardDescription className="text-blue-800 font-medium">
                   {shopsRequiringChoice.length === 1 
                     ? `"${shopsRequiringChoice[0].shopName}" offers both pickup and delivery. Select your preference:`
                     : `${shopsRequiringChoice.length} shops offer both pickup and delivery. Select your preference for each:`
@@ -1299,10 +1299,10 @@ export function CheckoutClient() {
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 {shopsRequiringChoice.map((shop) => (
-                  <div key={shop.shopId} className="p-5 border-2 border-orange-300 rounded-xl bg-white shadow-md">
-                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-orange-200">
+                  <div key={shop.shopId} className="p-5 border-2 border-blue-300 rounded-xl bg-white shadow-md">
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-blue-200">
                       <h4 className="font-bold text-base text-gray-900">{shop.shopName}</h4>
-                      <span className="px-2 py-1 bg-orange-200 text-orange-800 text-xs font-semibold rounded">
+                      <span className="px-2 py-1 bg-blue-200 text-blue-800 text-xs font-semibold rounded">
                         HYBRID SHOP
                       </span>
                     </div>
@@ -1544,7 +1544,7 @@ export function CheckoutClient() {
                     formData.city &&
                     formData.country &&
                     !loadingSummary && (
-                      <span className="block text-orange-600 text-xs mt-1">
+                      <span className="block text-blue-600 text-xs mt-1">
                         ⚠️ Calculating shipping costs...
                       </span>
                     )}

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import { locationService, type DeliveryStatus as DeliveryStatusType } from "@/lib/services/locationService";
 import { DeliveryCountriesDropdown } from "@/components/DeliveryCountriesDropdown";
+import { shopDeliveryService } from "@/lib/services/shopDeliveryService";
 
 interface DeliveryStatusProps {
   className?: string;
@@ -58,6 +59,29 @@ export function DeliveryStatus({ className = "" }: DeliveryStatusProps) {
       
       // Check delivery for the selected country
       const status = await locationService.checkDeliveryForCountry(country);
+      
+      // Check if shops deliver to this country
+      try {
+        const countries = await shopDeliveryService.getCountriesWithDelivery();
+        const countryInfo = countries.find(c => c.country.toLowerCase() === country.toLowerCase());
+        if (countryInfo) {
+          setShopCount(countryInfo.shopCount);
+          if (countryInfo.shopCount > 0) {
+            status.available = true;
+            status.message = `${countryInfo.shopCount} shop${countryInfo.shopCount > 1 ? 's' : ''} deliver${countryInfo.shopCount > 1 ? '' : 's'} to ${country}`;
+          } else {
+            status.available = false;
+            status.message = `No shops currently deliver to ${country}`;
+          }
+        } else {
+          status.available = false;
+          status.message = `No shops currently deliver to ${country}`;
+          setShopCount(0);
+        }
+      } catch (err) {
+        console.error('Error checking shop delivery:', err);
+      }
+      
       setDeliveryStatus(status);
     } catch (err) {
       setError('Failed to check delivery for selected country');
