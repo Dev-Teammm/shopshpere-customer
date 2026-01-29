@@ -14,14 +14,17 @@ import {
   CreditCard,
   Shield,
   Truck,
-  Gift
+  Gift,
+  MessageSquare
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { rewardSystemService } from "@/lib/rewardSystemService";
+import { GiveFeedbackDialog } from "@/components/GiveFeedbackDialog";
 
 const Footer = () => {
   const [isRewardSystemActive, setIsRewardSystemActive] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     const checkRewardSystem = async () => {
@@ -88,6 +91,16 @@ const Footer = () => {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="#" className="hover:text-primary transition-colors">About Us</a></li>
                 <li><a href="#" className="hover:text-primary transition-colors">Contact</a></li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackOpen(true)}
+                    className="hover:text-primary transition-colors flex items-center gap-1"
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                    Give Feedback
+                  </button>
+                </li>
                 <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
                 <li><a href="#" className="hover:text-primary transition-colors">Press</a></li>
                 <li><a href="#" className="hover:text-primary transition-colors">Blog</a></li>
@@ -185,6 +198,7 @@ const Footer = () => {
           </div>
         </div>
       </div>
+      <GiveFeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </footer>
   );
 };

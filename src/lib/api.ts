@@ -125,6 +125,9 @@ export const API_ENDPOINTS = {
   SEARCH_SHOPS: `${API_BASE_URL}/shops/search`,
   ACTIVE_SHOPS: `${API_BASE_URL}/shops/active`,
   SHOP_DETAILS: (id: string) => `${API_BASE_URL}/shops/${id}/details`,
+
+  // Feedback (public, no auth required)
+  FEEDBACK: `${API_BASE_URL}/feedback`,
 } as const;
 
 // HTTP Headers
