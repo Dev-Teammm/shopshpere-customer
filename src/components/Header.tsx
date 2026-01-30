@@ -9,6 +9,7 @@ import {
   LogOut,
   Settings,
   Heart,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SearchBarWithSuggestions } from "@/components/SearchBarWithSuggestions";
@@ -40,6 +41,7 @@ import { CartService } from "@/lib/cartService";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { logout } from "@/lib/store/slices/authSlice";
 import { DeliveryStatus } from "@/components/DeliveryStatus";
+import { GiveFeedbackDialog } from "@/components/GiveFeedbackDialog";
 
 const Header = () => {
   const router = useRouter();
@@ -51,6 +53,7 @@ const Header = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [cartItemCount, setCartItemCount] = useState(0);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const handleSearch = (e: FormEvent, term?: string) => {
     e.preventDefault();
@@ -150,6 +153,14 @@ const Header = () => {
           <div className="flex items-center gap-4">
             <DeliveryStatus />
             <span className="text-muted-foreground">Help</span>
+            <button
+              type="button"
+              onClick={() => setFeedbackOpen(true)}
+              className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Give Feedback
+            </button>
             <NavigationLink
               href="/track-order"
               className="text-muted-foreground hover:text-primary transition-colors"
@@ -408,6 +419,7 @@ const Header = () => {
           </div>
         </div>
       </div>
+      <GiveFeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} defaultName={user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : ""} defaultEmail={user?.email || ""} />
     </header>
   );
 };

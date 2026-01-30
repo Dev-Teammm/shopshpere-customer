@@ -448,7 +448,7 @@ export const CartService = {
   },
 
   /**
-   * Get the number of items in the cart
+   * Get the number of distinct items in the cart (not total quantity)
    */
   getCartItemsCount: async (): Promise<number> => {
     const token = getAuthToken();
@@ -458,14 +458,15 @@ export const CartService = {
       const cartItems = localStorage.getItem("cart");
       if (!cartItems) return 0;
       const cart = JSON.parse(cartItems) as LocalStorageCartItem[];
-      // Return total quantity of all items
-      return cart.reduce((total, item) => total + item.quantity, 0);
+      // Return count of distinct items (not total quantity)
+      return cart.length;
     }
 
     try {
-      // For authenticated users, get the full cart and count total items
+      // For authenticated users, get the full cart and count distinct items
       const cart = await CartService.getCart();
-      return cart.totalItems || 0;
+      // Return the count of distinct items in the cart, not total quantity
+      return cart.items?.length || 0;
     } catch (error) {
       console.error("Error getting cart item count:", error);
       // For authenticated users, don't fallback to localStorage on network errors
