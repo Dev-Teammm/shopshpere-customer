@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   MapPin,
   Star,
@@ -17,6 +17,10 @@ import {
   Heart,
   MessageCircle,
   MoreHorizontal,
+  Users,
+  Mail,
+  Phone,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,8 +37,23 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { StoreService } from "@/lib/storeService";
 import ProductCard from "@/components/ProductCard";
+import { useAppSelector } from "@/lib/store/hooks";
+import { toast } from "sonner";
 
 interface Product {
   productId: string;
@@ -71,6 +90,10 @@ interface ShopDetails {
   rating: number;
   totalReviews: number;
   productCount: number;
+  followerCount?: number;
+  isFollowing?: boolean;
+  primaryCapability?: string;
+  capabilities?: string[];
   createdAt: string;
   owner: {
     id: string;
@@ -84,8 +107,13 @@ interface ShopDetails {
 
 export function StoreProfileClient({ storeId }: { storeId: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isAuthenticated } = useAppSelector((state) => state.auth);
   const [store, setStore] = useState<ShopDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [contactDialogOpen, setContactDialogOpen] = useState(false);
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [unfollowDialogOpen, setUnfollowDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchStoreDetails = async () => {
@@ -104,6 +132,60 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
       fetchStoreDetails();
     }
   }, [storeId]);
+
+  // Handle follow/unfollow toggle
+  const handleFollowToggle = async () => {
+    if (!isAuthenticated) {
+      setLoginDialogOpen(true);
+      return;
+    }
+
+    if (!store) return;
+
+    // If unfollowing, show confirmation dialog
+    if (store.isFollowing) {
+      setUnfollowDialogOpen(true);
+      return;
+    }
+
+    // If following, proceed directly
+    try {
+      await StoreService.followShop(storeId);
+      setStore({ ...store, isFollowing: true, followerCount: (store.followerCount || 0) + 1 });
+      toast.success("Following shop");
+    } catch (error: any) {
+      console.error("Error following shop:", error);
+      toast.error(error.message || "Failed to follow shop");
+    }
+  };
+
+  // Handle confirmed unfollow
+  const handleConfirmUnfollow = async () => {
+    if (!store) return;
+
+    try {
+      await StoreService.unfollowShop(storeId);
+      setStore({ ...store, isFollowing: false, followerCount: (store.followerCount || 0) - 1 });
+      toast.success("Unfollowed shop");
+      setUnfollowDialogOpen(false);
+    } catch (error: any) {
+      console.error("Error unfollowing shop:", error);
+      toast.error(error.message || "Failed to unfollow shop");
+    }
+  };
+
+  // Check if user should be redirected after login
+  useEffect(() => {
+    const shouldFollow = searchParams.get("follow") === "true";
+    
+    if (isAuthenticated && shouldFollow && store && !store.isFollowing) {
+      // User just logged in and wants to follow
+      handleFollowToggle();
+      // Clean up URL params
+      router.replace(`/stores/${storeId}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, searchParams, store]);
 
   if (loading) {
     return (
@@ -214,9 +296,30 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                   </span>
                 </div>
 
-                <Badge variant="secondary" className="mt-4 text-base px-4 py-1">
-                  {store.category}
-                </Badge>
+                <div className="flex items-center gap-2 mt-4 flex-wrap justify-center">
+                  <Badge variant="secondary" className="text-base px-4 py-1">
+                    {store.category}
+                  </Badge>
+                  {store.primaryCapability && (
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${
+                        store.primaryCapability === "PICKUP_ORDERS"
+                          ? "bg-blue-100 text-blue-700 border-blue-200"
+                          : store.primaryCapability === "FULL_ECOMMERCE"
+                          ? "bg-green-100 text-green-700 border-green-200"
+                          : store.primaryCapability === "HYBRID"
+                          ? "bg-orange-100 text-orange-700 border-orange-200"
+                          : "bg-gray-100 text-gray-700 border-gray-200"
+                      }`}
+                    >
+                      {store.primaryCapability === "PICKUP_ORDERS" && "Pickup Only"}
+                      {store.primaryCapability === "FULL_ECOMMERCE" && "Full E-commerce"}
+                      {store.primaryCapability === "HYBRID" && "Hybrid"}
+                      {store.primaryCapability === "VISUALIZATION_ONLY" && "Display Only"}
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
 
               <CardContent className="space-y-6">
@@ -268,18 +371,45 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
                       <p className="font-medium">{store.productCount}</p>
                     </div>
                   </div>
+
+                  {/* Follower Count */}
+                  <div className="flex items-center gap-3 text-sm">
+                    <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+                        Followers
+                      </p>
+                      <p className="font-medium">{store.followerCount?.toLocaleString() || 0}</p>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
 
               <CardFooter className="flex flex-col gap-3 pb-8">
-                <Button className="w-full h-11 text-base shadow-lg hover:shadow-primary/20 transition-all">
+                <Button 
+                  className="w-full h-11 text-base shadow-lg hover:shadow-primary/20 transition-all"
+                  onClick={() => setContactDialogOpen(true)}
+                >
                   <MessageCircle className="mr-2 h-4 w-4" />
                   Contact Seller
                 </Button>
-                <Button variant="outline" className="w-full h-11">
-                  <Heart className="mr-2 h-4 w-4" />
-                  Follow Store
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant={store.isFollowing ? "outline" : "default"}
+                        className="w-full h-11"
+                        onClick={handleFollowToggle}
+                      >
+                        <Heart className={`mr-2 h-4 w-4 ${store.isFollowing ? "fill-red-500 text-red-500" : ""}`} />
+                        {store.isFollowing ? "Following" : "Follow Store"}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{store.isFollowing ? "Click to unfollow this store" : "Click to follow this store and stay updated"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </CardFooter>
             </Card>
           </div>
@@ -485,6 +615,138 @@ export function StoreProfileClient({ storeId }: { storeId: string }) {
           </div>
         </div>
       </div>
+
+      {/* Contact Seller Dialog */}
+      <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle>Contact {store.name}</DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setContactDialogOpen(false)}
+                className="h-6 w-6"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <DialogDescription>
+              Get in touch with the shop owner
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3">
+              <User className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Owner</p>
+                <p className="text-sm text-muted-foreground">
+                  {store.owner.firstName} {store.owner.lastName}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Mail className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Email</p>
+                <a 
+                  href={`mailto:${store.contactEmail}`}
+                  className="text-sm text-primary hover:underline"
+                >
+                  {store.contactEmail}
+                </a>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Phone className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Phone</p>
+                <a 
+                  href={`tel:${store.contactPhone}`}
+                  className="text-sm text-primary hover:underline"
+                >
+                  {store.contactPhone}
+                </a>
+              </div>
+            </div>
+            {store.address && (
+              <div className="flex items-center gap-3">
+                <MapPin className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Address</p>
+                  <p className="text-sm text-muted-foreground">{store.address}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Login Required Dialog */}
+      <Dialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Login Required</DialogTitle>
+            <DialogDescription>
+              You need to be logged in to follow shops
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Please sign in or create an account to follow {store.name} and stay updated with their latest products and offers.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  const returnUrl = `/stores/${storeId}?follow=true`;
+                  router.push(`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`);
+                }}
+              >
+                Sign In
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  const returnUrl = `/stores/${storeId}?follow=true`;
+                  router.push(`/auth/register?returnUrl=${encodeURIComponent(returnUrl)}`);
+                }}
+              >
+                Sign Up
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unfollow Confirmation Dialog */}
+      <Dialog open={unfollowDialogOpen} onOpenChange={setUnfollowDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unfollow {store?.name}?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to unfollow this shop? You will no longer receive updates about their products and offers.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setUnfollowDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={handleConfirmUnfollow}
+            >
+              Unfollow
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
